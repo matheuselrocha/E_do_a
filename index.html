@@ -185,6 +185,11 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .card{background:var(--card);margin:0 0 1px;padding:13px 16px;box-shadow:var(--sombra)}
 .card .tl{font-weight:700;font-size:15px}
 .card .st{font-size:12.5px;color:var(--ink2);margin:3px 0 10px;line-height:1.4}
+.pcat{font-family:"Barlow Semi Condensed";font-size:16px;font-weight:700;margin:0 0 2px;display:flex;align-items:baseline;gap:8px}
+.pcat span{font-size:12px;font-weight:600;color:var(--ink3);font-family:Barlow,sans-serif}
+.opt{padding:12px 0}
+.opt+.opt{border-top:1px solid var(--rule2)}
+.ot{font-size:13px;color:var(--ink2);line-height:1.4;margin-bottom:9px}
 .abrir{display:flex;align-items:center;justify-content:center;gap:7px;padding:11px;background:var(--fogo);color:#fff;
   text-align:center;border-radius:9px;text-decoration:none;font-weight:700;font-size:14px}
 .abrir svg{width:15px;height:15px;stroke:#fff;stroke-width:2;fill:none}
@@ -538,16 +543,18 @@ function telaLojas(){
    Tela 3 — Online
    ========================================================================= */
 function telaOnline(){
-  const lista=DADOS.links;
+  const lista=DADOS.links.filter(l=>l.op && l.op.length);
   let h=`<h2 class="grupo">Itens que valem comprar online</h2>`;
   for(const l of lista){
-    const [p,...o]=l.op; if(!p) continue;
-    h+=`<div class="card"><div class="tl">${esc(l.nome)}</div>
-      <div class="st">${esc(p.t)}</div>
-      <a class="abrir" href="${esc(p.u)}" target="_blank" rel="noopener nofollow">Abrir a oferta
-        <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>`;
-    if(o.length) h+=`<details class="outras"><summary>Outras ${o.length} opç${o.length>1?"ões":"ão"}</summary>${
-      o.map(x=>`<a href="${esc(x.u)}" target="_blank" rel="noopener nofollow">${esc(x.t)}</a>`).join("")}</details>`;
+    h+=`<div class="card">
+      <h3 class="pcat">${esc(l.nome)} <span>${l.op.length} ${l.op.length>1?"opções":"opção"}</span></h3>`;
+    for(const x of l.op){
+      h+=`<div class="opt">
+        <div class="ot">${esc(x.t)}</div>
+        <a class="abrir" href="${esc(x.u)}" target="_blank" rel="noopener nofollow">Abrir a oferta
+          <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+      </div>`;
+    }
     h+=`</div>`;
   }
   return h+`<p class="aviso">Uniforme, coturno e insígnia se compram nas lojas físicas — tem prova de tamanho e bordado. Aqui ficam só os itens de fora do enxoval oficial. Links de Mercado Livre/Shopee são de afiliado da autora da planilha.</p>`;
