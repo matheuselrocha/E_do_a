@@ -63,6 +63,7 @@ a{color:inherit}
 .topo .hd .tela{margin-left:auto;font-size:11.5px;color:#8f8f85;letter-spacing:.04em;text-transform:uppercase}
 .falta{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .falta b{font-family:"Barlow Semi Condensed";font-size:40px;font-weight:700;line-height:.92;letter-spacing:-.01em}
+.falta b.cta{font-size:25px;letter-spacing:0;line-height:1.1}
 .falta span{font-size:13.5px;color:#a6a69c}
 .sub{font-size:13px;color:#a6a69c;margin-top:5px}
 .sub b{color:#e7e7df;font-weight:600}
@@ -510,13 +511,24 @@ const NOME_TELA = { calc:"Calculadora", carrinho:"Seu carrinho", lojas:"Lojas & 
 
 function topo(){
   const r = resumo(visiveis());
-  const pct = r.itens ? Math.round(r.feitos/r.itens*100) : 0;
-  const fim = r.itens && r.feitos===r.itens;
+  const semEscolha = carrinho().length === 0;           // nenhuma loja escolhida ainda
+  const fim = r.itens && r.feitos===r.itens && !semEscolha;
   $("#tTela").textContent = NOME_TELA[E.aba] || "";
-  $("#tFalta").textContent = fim ? "Tudo comprado" : rs(r.falta);
-  $("#tLabel").textContent = fim ? "🎖" : "ainda a comprar";
-  $("#tSub").innerHTML = `Orçamento <b>${rs(r.total)}</b> · ${r.feitos} de ${r.itens} itens marcados`;
-  const b=$("#tBarra"); b.style.width=pct+"%"; b.classList.toggle("full",fim);
+  const big=$("#tFalta"), lbl=$("#tLabel"), sub=$("#tSub"), b=$("#tBarra");
+  if(semEscolha){
+    big.textContent = "Monte seu orçamento";
+    big.classList.add("cta");
+    lbl.textContent = "";
+    sub.innerHTML = "Escolha a loja de cada item na calculadora — o total aparece aqui.";
+    b.style.width = "0%"; b.classList.remove("full");
+  } else {
+    big.classList.remove("cta");
+    big.textContent = fim ? "Tudo comprado" : rs(r.falta);
+    lbl.textContent = fim ? "🎖" : "ainda a comprar";
+    sub.innerHTML = `Orçamento <b>${rs(r.total)}</b> · ${r.feitos} de ${r.itens} itens marcados`;
+    const pct = r.itens ? Math.round(r.feitos/r.itens*100) : 0;
+    b.style.width = pct+"%"; b.classList.toggle("full",fim);
+  }
   $("#fPonto").className = "pt" + (AO_VIVO ? " viva" : "");
   $("#fTexto").textContent = AO_VIVO ? "Preços lidos da planilha agora" : "Cópia local — planilha não respondeu";
 }
