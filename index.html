@@ -242,6 +242,26 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 }
 .abas button svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.7;fill:none}
 .abas button[aria-selected=true]{color:var(--fogo)}
+.ico-wrap{position:relative;display:inline-grid;place-items:center}
+.badge{position:absolute;top:-6px;right:-11px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--fogo);color:#fff;font-size:10px;font-weight:700;place-items:center;line-height:1;font-family:Barlow,sans-serif;box-shadow:0 0 0 2px rgba(251,251,247,.94)}
+
+/* ---------- carrinho ---------- */
+.painel.cart{border-radius:13px;border:1px solid var(--rule);margin:0 12px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.cabLoja{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:10px;margin-bottom:4px;border-bottom:2px solid var(--rule)}
+.cabLoja .cn{font-family:"Barlow Semi Condensed";font-size:17px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cabLoja .cm{font-size:12.5px;color:var(--ink2);font-weight:600;white-space:nowrap;flex:none}
+.ci{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule2)}
+.ci:last-child{border-bottom:none}
+.ci .q{font-family:"Barlow Semi Condensed";font-weight:700;color:var(--fogo);min-width:28px}
+.ci .nm{flex:1;font-size:14px;min-width:0;line-height:1.3}
+.ci .pv{font-family:"Barlow Semi Condensed";font-weight:600;color:var(--ink2);white-space:nowrap}
+.cart .abrir{margin-top:13px}
+.ig-link{display:block;text-align:center;margin-top:9px;font-size:13px;color:var(--ink2);text-decoration:underline}
+.vazio{text-align:center;padding:56px 30px 40px;color:var(--ink2)}
+.vazio svg{width:54px;height:54px;stroke:var(--ink3);stroke-width:1.4;fill:none;margin-bottom:14px}
+.vazio p{line-height:1.55;font-size:14.5px;margin:0}
+.voltarCalc{margin-top:18px;background:var(--ink);color:#f3f3ee;border:none;border-radius:9px;padding:12px 20px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px}
+.voltarCalc:active{background:#000}
 .abas button[aria-selected=true] svg{stroke-width:2}
 .abas button:focus-visible{outline:2px solid var(--fogo);outline-offset:-3px}
 
@@ -277,6 +297,8 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 <nav class="abas" role="tablist" aria-label="Seções"><div class="inner">
   <button role="tab" data-t="calc" aria-selected="true">
     <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h4"/></svg>Calculadora</button>
+  <button role="tab" data-t="carrinho" aria-selected="false">
+    <span class="ico-wrap"><svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2.5 3H5l2.3 11.4a1.5 1.5 0 001.5 1.2h8.4a1.5 1.5 0 001.5-1.2L21.5 7H6.2"/></svg><span class="badge" id="cartBadge"></span></span>Carrinho</button>
   <button role="tab" data-t="lojas" aria-selected="false">
     <svg viewBox="0 0 24 24"><path d="M4 9h16l-1 11H5L4 9zM8 9V6a4 4 0 018 0v3"/></svg>Lojas</button>
   <button role="tab" data-t="online" aria-selected="false">
@@ -465,9 +487,7 @@ function melhor(it){
 }
 const lojaDe = it => {
   const v = E.loja[it.id];
-  if(v === "") return "";                    // loja zerada de propósito (botão "Zerar lojas")
-  if(v && it.p[v]) return v;                 // loja escolhida pelo usuário
-  return melhor(it).loja;                    // padrão: a mais barata
+  return (v && it.p[v]) ? v : "";            // VAZIO por padrão; só preenche quando o usuário escolhe a loja
 };
 const qtdDe  = it => E.qtd[it.id] !== undefined ? E.qtd[it.id] : it.qtd;
 const unDe   = it => it.p[lojaDe(it)] || 0;
@@ -486,7 +506,7 @@ function resumo(lista){
 /* =========================================================================
    Render — topo
    ========================================================================= */
-const NOME_TELA = { calc:"Calculadora", lojas:"Lojas & pagamento", online:"Compras online", bizus:"Bizus do CFP" };
+const NOME_TELA = { calc:"Calculadora", carrinho:"Seu carrinho", lojas:"Lojas & pagamento", online:"Compras online", bizus:"Bizus do CFP" };
 
 function topo(){
   const r = resumo(visiveis());
@@ -613,6 +633,63 @@ function svgZap(){ return `<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 00-8.
 function svgIg(){ return `<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17" cy="7" r="1.1" fill="currentColor" stroke="none"/></svg>`; }
 
 /* =========================================================================
+   Tela — Carrinho (itens agrupados pela loja escolhida na calculadora)
+   ========================================================================= */
+function carrinho(){                                  // derivado do estado (loja + qtd por item)
+  const grupos = new Map();
+  for(const it of todos()){
+    const lj = lojaDe(it), q = qtdDe(it);
+    if(!lj || q<=0) continue;                          // sem loja escolhida ou qtd 0 → fora do carrinho
+    if(!grupos.has(lj)) grupos.set(lj, { loja:lj, itens:[], nItens:0, subtotal:0 });
+    const g = grupos.get(lj), un = it.p[lj]||0;
+    g.itens.push({ nome:it.nome, q, un, sub:un*q });
+    g.nItens++; g.subtotal += un*q;
+  }
+  return [...grupos.values()];
+}
+function contatoDe(loja){                              // casa o nome da loja (preços) com a aba de contatos
+  const cs = DADOS.contatos||[], L = loja.toLowerCase().trim();
+  return cs.find(x=>x[0].toLowerCase().trim()===L)
+      || cs.find(x=>x[0].toLowerCase().trim().startsWith(L))
+      || cs.find(x=>{ const fw=x[0].toLowerCase().split(" ")[0]; return fw.length>2 && L.startsWith(fw); })
+      || null;
+}
+function msgWhats(g){
+  const linhas = g.itens.map(i=>`• ${i.q}x ${i.nome}`).join("\n");
+  return `Olá! Sou do CFP CBMDF 2026 e gostaria de comprar na ${g.loja}:\n\n${linhas}\n\nPode me passar valores, formas de pagamento e disponibilidade? Obrigado(a)!`;
+}
+function telaCarrinho(){
+  const grupos = carrinho();
+  if(!grupos.length)
+    return `<div class="vazio">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2.5 3H5l2.3 11.4a1.5 1.5 0 001.5 1.2h8.4a1.5 1.5 0 001.5-1.2L21.5 7H6.2"/></svg>
+      <p><b>Seu carrinho está vazio.</b><br>Volte à calculadora e escolha a loja de cada item que você quer comprar.</p>
+      <button class="voltarCalc">Ir para a calculadora</button>
+    </div>`;
+  let h=`<h2 class="grupo">Seu carrinho <span class="rt">agrupado por loja</span></h2>`;
+  for(const g of grupos){
+    const c = contatoDe(g.loja);
+    let acao = "";
+    if(c){
+      const tel=(c[1]||"").replace(/\D/g,""), ig=c[3]||"";
+      if(tel){
+        acao=`<a class="abrir" href="https://wa.me/55${tel}?text=${encodeURIComponent(msgWhats(g))}" target="_blank" rel="noopener">Enviar para ${esc(g.loja)}
+          <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>`;
+        if(ig) acao+=`<a class="ig-link" href="${esc(ig)}" target="_blank" rel="noopener">ou falar pelo Instagram</a>`;
+      } else if(ig){
+        acao=`<a class="abrir" href="${esc(ig)}" target="_blank" rel="noopener">Abrir Instagram de ${esc(g.loja)}</a>`;
+      }
+    }
+    h+=`<div class="painel cart">
+      <div class="cabLoja"><span class="cn">${esc(g.loja)}</span><span class="cm num">${g.nItens} ${g.nItens>1?"itens":"item"} · ${rs(g.subtotal)}</span></div>
+      <div class="citens">${g.itens.map(i=>`<div class="ci"><span class="q num">${i.q}×</span><span class="nm">${esc(i.nome)}</span><span class="pv num">${rs(i.sub)}</span></div>`).join("")}</div>
+      ${acao}
+    </div>`;
+  }
+  return h;
+}
+
+/* =========================================================================
    Tela 4 — Bizus
    ========================================================================= */
 const ICONE_GRUPO = {"Arquivos base":"📁","Ordem unida":"🥾","Hinos e canções":"🎵","Nós e amarrações":"🪢","Cuidado com os pés":"🦶","Manutenção do coturno":"🥾","Kit costura":"🧵","Outros":"⭐"};
@@ -637,10 +714,13 @@ function desenhar(){
   if(!DADOS) return;
   const t=E.aba;
   $("#tela").innerHTML =
+    t==="carrinho" ? telaCarrinho() :
     t==="lojas" ? telaLojas() :
     t==="online" ? telaOnline() :
     t==="bizus" ? telaBizus() : telaCalc();
   document.querySelectorAll(".abas button").forEach(b=>b.setAttribute("aria-selected", b.dataset.t===t));
+  const nc = carrinho().reduce((a,g)=>a+g.nItens,0);
+  const bd = $("#cartBadge"); if(bd){ bd.textContent = nc; bd.style.display = nc ? "grid" : "none"; }
   topo();
 }
 
@@ -650,6 +730,8 @@ function desenhar(){
 document.addEventListener("click", ev => {
   const aba = ev.target.closest(".abas button");
   if(aba){ E.aba=aba.dataset.t; salvar(); desenhar(); window.scrollTo(0,0); return; }
+
+  if(ev.target.closest(".voltarCalc")){ E.aba="calc"; salvar(); desenhar(); window.scrollTo(0,0); return; }
 
   const art = ev.target.closest(".item");
   if(!art) return;
@@ -662,7 +744,7 @@ document.addEventListener("click", ev => {
   if(passo){ E.qtd[id]=Math.max(0, qtdDe(it) + (+passo.dataset.d)); salvar(); desenhar(); return; }
 
   const lj = ev.target.closest(".lj");
-  if(lj){ E.loja[id]=lj.dataset.loja; salvar(); desenhar(); return; }
+  if(lj){ const nova=lj.dataset.loja; E.loja[id] = (E.loja[id]===nova) ? "" : nova; salvar(); desenhar(); return; }  // toca de novo p/ limpar
 
   if(ev.target.closest(".lojaBtn") || ev.target.closest(".nome")){ art.classList.toggle("aberto"); return; }
 });
