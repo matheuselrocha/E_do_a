@@ -517,7 +517,7 @@ const NOME_TELA = { calc:"Calculadora", carrinho:"Seu carrinho", lojas:"Lojas & 
 
 function topo(){
   const r = resumo(visiveis());
-  const semEscolha = carrinho().length === 0;           // nenhuma loja escolhida ainda
+  const semEscolha = !todos().some(it => lojaDe(it)!=="" && qtdDe(it)>0);   // nenhuma loja escolhida ainda
   const fim = r.itens && r.feitos===r.itens && !semEscolha;
   $("#tTela").textContent = NOME_TELA[E.aba] || "";
   const big=$("#tFalta"), lbl=$("#tLabel"), sub=$("#tSub"), b=$("#tBarra");
@@ -583,7 +583,7 @@ function itemHTML(it){
 function telaCalc(){
   const its=visiveis(), por={};
   for(const it of its) (por[it.bloco] ||= []).push(it);
-  let h=`<p class="hint" style="margin-top:14px">Toque no <b>±</b> pra mudar a quantidade e na <b>loja</b> pra comparar preços. O total lá em cima acompanha.</p>`;
+  let h=`<p class="hint" style="margin-top:14px">Toque no <b>±</b> pra mudar a quantidade e na <b>loja</b> pra comparar preços. Marque o <b>✓</b> quando já tiver comprado o item — ele sai do carrinho.</p>`;
   for(const [chave,cfg] of Object.entries(CFG.blocos)){
     const lista=por[chave]; if(!lista?.length) continue;
     const r=resumo(lista);
@@ -657,7 +657,7 @@ function carrinho(){                                  // derivado do estado (loj
   const grupos = new Map();
   for(const it of todos()){
     const lj = lojaDe(it), q = qtdDe(it);
-    if(!lj || q<=0) continue;                          // sem loja escolhida ou qtd 0 → fora do carrinho
+    if(!lj || q<=0 || E.ok[it.id]) continue;           // sem loja, qtd 0, ou já comprado (✓) → fora do carrinho
     if(!grupos.has(lj)) grupos.set(lj, { loja:lj, itens:[], nItens:0, subtotal:0 });
     const g = grupos.get(lj), un = it.p[lj]||0;
     g.itens.push({ nome:it.nome, cat:it.cat, q, un, sub:un*q });
