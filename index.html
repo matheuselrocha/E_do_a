@@ -254,8 +254,13 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .ci{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule2)}
 .ci:last-child{border-bottom:none}
 .ci .q{font-family:"Barlow Semi Condensed";font-weight:700;color:var(--fogo);min-width:28px}
-.ci .nm{flex:1;font-size:14px;min-width:0;line-height:1.3}
+.ci .nmwrap{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ci .nm{font-size:14px;line-height:1.3}
 .ci .pv{font-family:"Barlow Semi Condensed";font-weight:600;color:var(--ink2);white-space:nowrap}
+.consultar{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;margin-top:3px;padding:4px 0;background:none;border:none;font:inherit;font-size:12px;font-weight:700;color:var(--fogo);cursor:pointer}
+.consultar svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.3;fill:none}
+.lojaonline-nota{margin-top:11px;font-size:12.5px;color:var(--ink2);line-height:1.45;border-left:3px solid var(--fogo);padding:2px 0 2px 10px}
+.card.destaque{outline:2px solid var(--fogo);outline-offset:3px;border-radius:13px}
 .cart .abrir{margin-top:13px}
 .ig-link{display:block;text-align:center;margin-top:9px;font-size:13px;color:var(--ink2);text-decoration:underline}
 .vazio{text-align:center;padding:56px 30px 40px;color:var(--ink2)}
@@ -620,7 +625,7 @@ function telaOnline(){
   const lista=DADOS.links.filter(l=>l.op && l.op.length);
   let h=`<h2 class="grupo">Itens que valem comprar online</h2>`;
   for(const l of lista){
-    h+=`<div class="card">
+    h+=`<div class="card" data-cat="${esc(l.nome)}">
       <h3 class="pcat">${esc(l.nome)} <span>${l.op.length} ${l.op.length>1?"opções":"opção"}</span></h3>`;
     for(const x of l.op){
       const thumb = x.img
@@ -654,7 +659,7 @@ function carrinho(){                                  // derivado do estado (loj
     if(!lj || q<=0) continue;                          // sem loja escolhida ou qtd 0 → fora do carrinho
     if(!grupos.has(lj)) grupos.set(lj, { loja:lj, itens:[], nItens:0, subtotal:0 });
     const g = grupos.get(lj), un = it.p[lj]||0;
-    g.itens.push({ nome:it.nome, q, un, sub:un*q });
+    g.itens.push({ nome:it.nome, cat:it.cat, q, un, sub:un*q });
     g.nItens++; g.subtotal += un*q;
   }
   return [...grupos.values()];
@@ -666,6 +671,29 @@ function contatoDe(loja){                              // casa o nome da loja (p
       || cs.find(x=>{ const fw=x[0].toLowerCase().split(" ")[0]; return fw.length>2 && L.startsWith(fw); })
       || null;
 }
+// Loja que é site (não física) → em vez de contato, oferecemos "Consultar ofertas" na aba Online.
+const LOJA_ONLINE = /mercado livre|mercadolivre|shopee|magazine|magalu|centauro|amazon|online/i;
+const ehOnline = loja => LOJA_ONLINE.test(loja||"");
+
+// Acha a categoria da aba Online que corresponde a um item da calculadora (por palavras-chave
+// do nome + categoria do item contra o nome e as opções de cada categoria online).
+function categoriaOnline(nomeItem, catItem){
+  const links = DADOS.links||[];
+  const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const stop = new Set(["para","padrao","enxoval","loja","online","pares","tamanhos","grandes","unidades","masculina","feminina","feminino","masculino"]);
+  const toks = s => norm(s).split(/[^a-z0-9]+/).filter(w=>w.length>=4 && !stop.has(w));
+  const alvo = toks(nomeItem+" "+(catItem||""));
+  if(!alvo.length) return null;
+  let best=null, bestSc=0;
+  for(const l of links){
+    const hay = new Set([...toks(l.nome), ...l.op.flatMap(o=>toks(o.t))]);
+    let sc=0;
+    for(const w of alvo){ for(const h of hay){ if(h===w || h.startsWith(w) || w.startsWith(h)){ sc++; break; } } }
+    if(sc>bestSc){ bestSc=sc; best=l.nome; }
+  }
+  return bestSc>=1 ? best : null;
+}
+
 function msgWhats(g){
   const linhas = g.itens.map(i=>`• ${i.q}x ${i.nome}`).join("\n");
   return `Olá! Sou do CFP CBMDF 2026 e gostaria de comprar na ${g.loja}:\n\n${linhas}\n\nPode me passar valores, formas de pagamento e disponibilidade? Obrigado(a)!`;
@@ -692,10 +720,19 @@ function telaCarrinho(){
         acao=`<a class="abrir" href="${esc(ig)}" target="_blank" rel="noopener">Abrir Instagram de ${esc(g.loja)}</a>`;
       }
     }
+    const online = ehOnline(g.loja);
+    const itensHTML = g.itens.map(i=>{
+      const cat = online ? categoriaOnline(i.nome, i.cat) : null;
+      const consultar = cat ? `<button class="consultar" data-cat="${esc(cat)}">Consultar ofertas
+        <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>` : "";
+      return `<div class="ci"><span class="q num">${i.q}×</span>
+        <span class="nmwrap"><span class="nm">${esc(i.nome)}</span>${consultar}</span>
+        <span class="pv num">${rs(i.sub)}</span></div>`;
+    }).join("");
     h+=`<div class="painel cart">
       <div class="cabLoja"><span class="cn">${esc(g.loja)}</span><span class="cm num">${g.nItens} ${g.nItens>1?"itens":"item"} · ${rs(g.subtotal)}</span></div>
-      <div class="citens">${g.itens.map(i=>`<div class="ci"><span class="q num">${i.q}×</span><span class="nm">${esc(i.nome)}</span><span class="pv num">${rs(i.sub)}</span></div>`).join("")}</div>
-      ${acao}
+      <div class="citens">${itensHTML}</div>
+      ${acao || (online ? `<p class="lojaonline-nota">Loja online — toque em “Consultar ofertas” para comparar e comprar cada item.</p>` : "")}
     </div>`;
   }
   return h;
@@ -744,6 +781,18 @@ document.addEventListener("click", ev => {
   if(aba){ E.aba=aba.dataset.t; salvar(); desenhar(); window.scrollTo(0,0); return; }
 
   if(ev.target.closest(".voltarCalc")){ E.aba="calc"; salvar(); desenhar(); window.scrollTo(0,0); return; }
+
+  const cons = ev.target.closest(".consultar");
+  if(cons){
+    const cat = cons.dataset.cat;
+    E.aba="online"; salvar(); desenhar();
+    requestAnimationFrame(()=>{
+      const el = [...document.querySelectorAll("#tela .card")].find(c=>c.dataset.cat===cat);
+      if(el){ el.scrollIntoView({behavior:"smooth",block:"start"}); el.classList.add("destaque"); setTimeout(()=>el.classList.remove("destaque"),1800); }
+      else window.scrollTo(0,0);
+    });
+    return;
+  }
 
   const art = ev.target.closest(".item");
   if(!art) return;
