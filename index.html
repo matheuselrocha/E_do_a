@@ -229,9 +229,12 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 /* ---------- rodapé ---------- */
 .rodape{padding:22px 16px 12px;font-size:12px;color:var(--ink3);line-height:1.55}
 .rodape a{color:var(--ink2)}
-.zerar-linha{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.zerar{background:none;border:1px solid var(--rule);border-radius:8px;padding:9px 14px;font-size:12.5px;color:var(--ink2);cursor:pointer;min-height:40px}
-.zerar:active{background:var(--card)}
+.ferramentas{display:flex;gap:7px;padding:0 16px;margin:2px 0 6px;flex-wrap:wrap}
+.ferbtn{flex:1;min-width:96px;min-height:40px;border:1px solid var(--rule);background:var(--card);border-radius:9px;padding:8px 10px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;line-height:1.15}
+.ferbtn:active{background:var(--bg)}
+.ferbtn.forte{background:var(--ink);border-color:var(--ink);color:#f3f3ee}
+.ferbtn.ghost{color:var(--ink2)}
+.ferbtn:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
 
 /* ---------- abas ---------- */
 .abas{
@@ -314,10 +317,6 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 
   <div class="rodape">
     <p>Pesquisa feita por aprovados do CFP CBMDF 2026. Preço muda sem aviso — confirme na loja antes de comprar. Célula com preço zero na planilha = a loja não vende aquele item.</p>
-    <div class="zerar-linha">
-      <button class="zerar" id="btZerarLojas">Zerar lojas</button>
-      <button class="zerar" id="btZerar">Zerar minhas escolhas</button>
-    </div>
   </div>
 </div>
 
@@ -631,7 +630,14 @@ function itemHTML(it){
 function telaCalc(){
   const its=visiveis(), por={};
   for(const it of its) (por[it.bloco] ||= []).push(it);
-  let h=`<p class="hint" style="margin-top:14px">Escolha a <b>loja</b> pra comparar preços e ajuste a <b>quantidade</b> no <b>±</b>. Marque o <b>✓</b> pra <b>adicionar o item ao carrinho</b>.</p>`;
+  const alvos = its.filter(it=>qtdDe(it)>0);
+  const todosSel = alvos.length>0 && alvos.every(emCarrinho);
+  let h=`<p class="hint" style="margin-top:14px">Escolha a <b>loja</b> pra comparar preços e ajuste a <b>quantidade</b> no <b>±</b>. Marque o <b>✓</b> pra <b>adicionar o item ao carrinho</b>.</p>
+  <div class="ferramentas">
+    <button class="ferbtn forte" data-act="tudo">${todosSel?"Desmarcar tudo":"Selecionar tudo"}</button>
+    <button class="ferbtn" data-act="baratas">Lojas mais baratas</button>
+    <button class="ferbtn ghost" data-act="limpar">Limpar escolhas</button>
+  </div>`;
   for(const [chave,cfg] of Object.entries(CFG.blocos)){
     const lista=por[chave]; if(!lista?.length) continue;
     const r=resumo(lista);
@@ -864,6 +870,23 @@ document.addEventListener("click", ev => {
   const jc = ev.target.closest(".jaComprou");
   if(jc){ const loja=jc.dataset.loja; E.compradoLoja[loja]=!E.compradoLoja[loja]; salvar(); desenhar(); return; }
 
+  const fer = ev.target.closest(".ferbtn");
+  if(fer){
+    const act = fer.dataset.act;
+    const alvos = todos().filter(it=>qtdDe(it)>0);
+    if(act==="tudo"){
+      const todosSel = alvos.length>0 && alvos.every(emCarrinho);
+      if(todosSel){ for(const it of alvos) E.cart[it.id]=false; }                    // desmarca tudo (mantém as lojas)
+      else { for(const it of alvos){ if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja; E.cart[it.id]=true; } }  // marca tudo (loja mais barata p/ quem não tem)
+    } else if(act==="baratas"){
+      for(const it of alvos) E.loja[it.id]=melhor(it).loja;                          // só designa a mais barata, sem mexer no carrinho
+    } else if(act==="limpar"){
+      if(!confirm("Isso zera as lojas escolhidas, o carrinho e as marcações de “já comprou”. As quantidades continuam. Continuar?")) return;
+      E.loja={}; E.cart={}; E.compradoLoja={};
+    }
+    salvar(); desenhar(); window.scrollTo(0,0); return;
+  }
+
   const art = ev.target.closest(".item");
   if(!art) return;
   const id = art.dataset.id;
@@ -881,18 +904,6 @@ document.addEventListener("click", ev => {
   if(lj){ const nova=lj.dataset.loja; E.loja[id] = (E.loja[id]===nova) ? "" : nova; salvar(); desenhar(); return; }  // toca de novo p/ limpar
 
   if(ev.target.closest(".lojaBtn") || ev.target.closest(".nome")){ art.classList.toggle("aberto"); return; }
-});
-
-$("#btZerar").addEventListener("click", () => {
-  if(!confirm("Isso apaga suas quantidades, escolhas de loja e o carrinho. Continuar?")) return;
-  E = { qtd:{}, loja:{}, cart:{}, compradoLoja:{}, aba:E.aba };
-  salvar(); desenhar(); window.scrollTo(0,0);
-});
-
-$("#btZerarLojas").addEventListener("click", () => {
-  if(!confirm("Isso deixa a loja de todos os itens em branco e o valor zerado, pra você escolher loja por loja. Suas quantidades e marcações continuam. Continuar?")) return;
-  for(const it of todos()) E.loja[it.id] = "";   // "" = loja em branco (valor 0)
-  salvar(); desenhar(); window.scrollTo(0,0);
 });
 
 // Recarrega os preços quando você volta pro app
