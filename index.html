@@ -130,8 +130,8 @@ h2.grupo .rt b{color:var(--ink);font-weight:700}
 .dir{text-align:right;flex:none;padding-left:2px;min-width:74px}
 .dir .v{font-family:"Barlow Semi Condensed";font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.05}
 .dir .un{font-size:11px;color:var(--ink3);margin-top:1px}
-.item.ok .nome,.item.ok .dir .v{color:var(--ink3);text-decoration:line-through;text-decoration-thickness:1.5px}
-.item.ok .un{color:var(--ink3)}
+.item.nocart{background:linear-gradient(90deg,rgba(60,107,76,.07),transparent)}
+.item.nocart .linha{box-shadow:inset 3px 0 0 var(--feito)}
 .item.zerado{opacity:.62}
 .item.zerado .dir .v{color:var(--ink3)}
 
@@ -268,6 +268,20 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .consultar svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.3;fill:none}
 .lojaonline-nota{margin-top:11px;font-size:12.5px;color:var(--ink2);line-height:1.45;border-left:3px solid var(--fogo);padding:2px 0 2px 10px}
 .card.destaque{outline:2px solid var(--fogo);outline-offset:3px;border-radius:13px}
+.cartTotal{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ink);color:#f3f3ee;margin:12px 12px 14px;padding:13px 16px;border-radius:13px}
+.cartTotal .ct-l{font-size:11.5px;color:#a6a69c;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.cartTotal .ct-s{font-size:12.5px;color:#cfcfc6;margin-top:3px}
+.cartTotal b{font-family:"Barlow Semi Condensed";font-size:27px;font-weight:700;white-space:nowrap}
+.jaComprou{display:flex;align-items:center;gap:9px;width:100%;background:none;border:none;padding:9px 0 3px;font:inherit;font-size:13px;color:var(--ink2);cursor:pointer;text-align:left}
+.jaComprou .jbox{width:20px;height:20px;flex:none;border:1.5px solid #c0c0b6;border-radius:5px;display:grid;place-items:center;background:transparent}
+.jaComprou .jbox svg{width:12px;height:12px;stroke:#fff;stroke-width:2.6;fill:none;opacity:0}
+.jaComprou[aria-checked=true] .jbox{background:var(--feito);border-color:var(--feito)}
+.jaComprou[aria-checked=true] .jbox svg{opacity:1}
+.jaComprou[aria-checked=true]{color:var(--feito);font-weight:600}
+.jaComprou:focus-visible{outline:2px solid var(--fogo);outline-offset:2px;border-radius:6px}
+.painel.cart.comprada{opacity:.75}
+.painel.cart.comprada .ci .nm,.painel.cart.comprada .ci .pv{text-decoration:line-through;text-decoration-thickness:1.5px;color:var(--ink3)}
+.painel.cart.comprada .cabLoja .cn{text-decoration:line-through;text-decoration-thickness:1.5px;color:var(--ink2)}
 .cart .abrir{margin-top:13px}
 .ig-link{display:block;text-align:center;margin-top:9px;font-size:13px;color:var(--ink2);text-decoration:underline}
 .vazio{text-align:center;padding:56px 30px 40px;color:var(--ink2)}
@@ -372,8 +386,10 @@ const guarda = (() => {
   };
 })();
 const CHAVE = "cfp_enxoval_v2";
-let E = guarda.ler(CHAVE, { qtd:{}, loja:{}, ok:{}, genero:"A", aba:"calc" });
+let E = guarda.ler(CHAVE, { qtd:{}, loja:{}, cart:{}, compradoLoja:{}, aba:"calc" });
 if(E.aba==="contatos") E.aba="lojas";   // a aba Contatos virou parte de Lojas
+E.cart ||= {};             // itens adicionados ao carrinho (pelo checkbox da calculadora)
+E.compradoLoja ||= {};     // lojas marcadas como "já comprou" na aba Carrinho
 const salvar = () => guarda.gravar(CHAVE, E);
 
 let DADOS = null, AO_VIVO = false;
@@ -527,14 +543,17 @@ const lojaDe = it => {
 };
 const qtdDe  = it => E.qtd[it.id] !== undefined ? E.qtd[it.id] : it.qtd;
 const unDe   = it => it.p[lojaDe(it)] || 0;
+const emCarrinho   = it => !!E.cart[it.id] && lojaDe(it)!=="" && qtdDe(it)>0;   // no carrinho (checkbox marcado + loja + qtd)
+const lojaComprada = loja => !!E.compradoLoja[loja];                             // loja marcada como "já comprou"
 
+// Totais do carrinho: total = tudo no carrinho; falta = no carrinho e ainda não comprado.
 function resumo(lista){
   let total=0, falta=0, feitos=0, itens=0;
   for(const it of lista){
-    const q=qtdDe(it); if(q<=0) continue;
+    if(!emCarrinho(it)) continue;
     itens++;
-    const v=unDe(it)*q; total+=v;
-    if(E.ok[it.id]) feitos++; else falta+=v;
+    const v=unDe(it)*qtdDe(it); total+=v;
+    if(lojaComprada(lojaDe(it))) feitos++; else falta+=v;
   }
   return { total, falta, feitos, itens };
 }
@@ -545,22 +564,22 @@ function resumo(lista){
 const NOME_TELA = { calc:"Calculadora", carrinho:"Seu carrinho", lojas:"Lojas & pagamento", online:"Compras online", bizus:"Bizus do CFP" };
 
 function topo(){
-  const r = resumo(visiveis());
-  const semEscolha = !todos().some(it => lojaDe(it)!=="" && qtdDe(it)>0);   // nenhuma loja escolhida ainda
-  const fim = r.itens && r.feitos===r.itens && !semEscolha;
+  const r = resumo(todos());
+  const vazio = r.itens === 0;                     // nada no carrinho ainda
+  const fim = r.itens && r.feitos===r.itens;       // tudo que está no carrinho já foi comprado
   $("#tTela").textContent = NOME_TELA[E.aba] || "";
   const big=$("#tFalta"), lbl=$("#tLabel"), sub=$("#tSub"), b=$("#tBarra");
-  if(semEscolha){
+  if(vazio){
     big.textContent = "Monte seu orçamento";
     big.classList.add("cta");
     lbl.textContent = "";
-    sub.innerHTML = "Escolha a loja de cada item na calculadora — o total aparece aqui.";
+    sub.innerHTML = "Escolha a loja e marque o <b>✓</b> para adicionar o item ao carrinho.";
     b.style.width = "0%"; b.classList.remove("full");
   } else {
     big.classList.remove("cta");
     big.textContent = fim ? "Tudo comprado" : rs(r.falta);
     lbl.textContent = fim ? "🎖" : "ainda a comprar";
-    sub.innerHTML = `Orçamento <b>${rs(r.total)}</b> · ${r.feitos} de ${r.itens} itens marcados`;
+    sub.innerHTML = `Carrinho <b>${rs(r.total)}</b> · ${r.itens} ${r.itens>1?"itens":"item"}${r.feitos?` · ${r.feitos} comprado${r.feitos>1?"s":""}`:""}`;
     const pct = r.itens ? Math.round(r.feitos/r.itens*100) : 0;
     b.style.width = pct+"%"; b.classList.toggle("full",fim);
   }
@@ -574,7 +593,7 @@ function topo(){
 function chevron(){ return `<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>`; }
 
 function itemHTML(it){
-  const q=qtdDe(it), lj=lojaDe(it), un=it.p[lj]||0, ok=!!E.ok[it.id], zer=q<=0, semLoja=lj==="";
+  const q=qtdDe(it), lj=lojaDe(it), un=it.p[lj]||0, inCart=emCarrinho(it), zer=q<=0, semLoja=lj==="";
   const ord=Object.entries(it.p).sort((a,b)=>a[1]-b[1]), min=ord[0][1];
   const comp=ord.map(([l,p])=>`
     <button class="lj ${p===min?"menor":""}" data-loja="${esc(l)}" role="radio" aria-checked="${l===lj}">
@@ -582,9 +601,9 @@ function itemHTML(it){
       <span class="n">${esc(l)}</span><span class="p num">${rs(p)}</span>
       <span class="dif num">${p===min?"—":"+"+(p-min).toLocaleString("pt-BR")}</span>
     </button>`).join("");
-  return `<article class="item ${ok?"ok":""} ${zer?"zerado":""}" data-id="${esc(it.id)}">
+  return `<article class="item ${inCart?"nocart":""} ${zer?"zerado":""}" data-id="${esc(it.id)}">
     <div class="linha">
-      <button class="tick" role="checkbox" aria-checked="${ok}" aria-label="Marcar ${esc(it.nome)} como comprado">
+      <button class="tick" role="checkbox" aria-checked="${inCart}" aria-label="${inCart?"Remover":"Adicionar"} ${esc(it.nome)} ${inCart?"do":"ao"} carrinho" title="Adicionar ao carrinho">
         <svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></button>
       <div class="meio">
         <div class="nome">${esc(it.nome)}</div>
@@ -612,7 +631,7 @@ function itemHTML(it){
 function telaCalc(){
   const its=visiveis(), por={};
   for(const it of its) (por[it.bloco] ||= []).push(it);
-  let h=`<p class="hint" style="margin-top:14px">Toque no <b>±</b> pra mudar a quantidade e na <b>loja</b> pra comparar preços. Marque o <b>✓</b> quando já tiver comprado o item — ele sai do carrinho.</p>`;
+  let h=`<p class="hint" style="margin-top:14px">Escolha a <b>loja</b> pra comparar preços e ajuste a <b>quantidade</b> no <b>±</b>. Marque o <b>✓</b> pra <b>adicionar o item ao carrinho</b>.</p>`;
   for(const [chave,cfg] of Object.entries(CFG.blocos)){
     const lista=por[chave]; if(!lista?.length) continue;
     const r=resumo(lista);
@@ -684,13 +703,13 @@ function svgMap(){ return `<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.3-7-11a
 /* =========================================================================
    Tela — Carrinho (itens agrupados pela loja escolhida na calculadora)
    ========================================================================= */
-function carrinho(){                                  // derivado do estado (loja + qtd por item)
+function carrinho(){                                  // derivado do estado (itens marcados no checkbox)
   const grupos = new Map();
   for(const it of todos()){
-    const lj = lojaDe(it), q = qtdDe(it);
-    if(!lj || q<=0 || E.ok[it.id]) continue;           // sem loja, qtd 0, ou já comprado (✓) → fora do carrinho
-    if(!grupos.has(lj)) grupos.set(lj, { loja:lj, itens:[], nItens:0, subtotal:0 });
-    const g = grupos.get(lj), un = it.p[lj]||0;
+    if(!emCarrinho(it)) continue;                      // só entra quem foi adicionado pelo checkbox
+    const lj = lojaDe(it), q = qtdDe(it), un = it.p[lj]||0;
+    if(!grupos.has(lj)) grupos.set(lj, { loja:lj, itens:[], nItens:0, subtotal:0, comprada:lojaComprada(lj) });
+    const g = grupos.get(lj);
     g.itens.push({ nome:it.nome, cat:it.cat, q, un, sub:un*q });
     g.nItens++; g.subtotal += un*q;
   }
@@ -730,18 +749,19 @@ function msgWhats(g){
   const linhas = g.itens.map(i=>`• ${i.q}x ${i.nome}`).join("\n");
   return `Olá! Sou do CFP CBMDF 2026 e gostaria de comprar na ${g.loja}:\n\n${linhas}\n\nPode me passar valores, formas de pagamento e disponibilidade? Obrigado(a)!`;
 }
-function telaCarrinho(){
-  const grupos = carrinho();
-  if(!grupos.length)
-    return `<div class="vazio">
-      <svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2.5 3H5l2.3 11.4a1.5 1.5 0 001.5 1.2h8.4a1.5 1.5 0 001.5-1.2L21.5 7H6.2"/></svg>
-      <p><b>Seu carrinho está vazio.</b><br>Volte à calculadora e escolha a loja de cada item que você quer comprar.</p>
-      <button class="voltarCalc">Ir para a calculadora</button>
-    </div>`;
-  let h=`<h2 class="grupo">Seu carrinho <span class="rt">agrupado por loja</span></h2>`;
-  for(const g of grupos){
-    const c = contatoDe(g.loja);
-    let acao = "";
+function cardLojaCarrinho(g){
+  const c = contatoDe(g.loja), online = ehOnline(g.loja);
+  const mapsPin = (c&&c[4]) ? `<a class="mapsPin" href="${esc(c[4])}" target="_blank" rel="noopener" aria-label="Ver ${esc(g.loja)} no mapa" title="Ver no mapa">${svgMap()}</a>` : "";
+  const itensHTML = g.itens.map(i=>{
+    const cat = (online && !g.comprada) ? categoriaOnline(i.nome, i.cat) : null;
+    const consultar = cat ? `<button class="consultar" data-cat="${esc(cat)}">Consultar ofertas
+      <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>` : "";
+    return `<div class="ci"><span class="q num">${i.q}×</span>
+      <span class="nmwrap"><span class="nm">${esc(i.nome)}</span>${consultar}</span>
+      <span class="pv num">${rs(i.sub)}</span></div>`;
+  }).join("");
+  let acao = "";
+  if(!g.comprada){
     if(c){
       const tel=(c[1]||"").replace(/\D/g,""), ig=c[3]||"";
       if(tel){
@@ -750,22 +770,37 @@ function telaCarrinho(){
         if(ig) acao+=`<a class="ig-link" href="${esc(ig)}" target="_blank" rel="noopener">ou falar pelo Instagram</a>`;
       } else if(ig){
         acao=`<a class="abrir" href="${esc(ig)}" target="_blank" rel="noopener">Abrir Instagram de ${esc(g.loja)}</a>`;
+      } else if(online){
+        acao=`<p class="lojaonline-nota">Loja online — toque em “Consultar ofertas” para comparar e comprar cada item.</p>`;
       }
     }
-    const online = ehOnline(g.loja);
-    const itensHTML = g.itens.map(i=>{
-      const cat = online ? categoriaOnline(i.nome, i.cat) : null;
-      const consultar = cat ? `<button class="consultar" data-cat="${esc(cat)}">Consultar ofertas
-        <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>` : "";
-      return `<div class="ci"><span class="q num">${i.q}×</span>
-        <span class="nmwrap"><span class="nm">${esc(i.nome)}</span>${consultar}</span>
-        <span class="pv num">${rs(i.sub)}</span></div>`;
-    }).join("");
-    h+=`<div class="painel cart">
-      <div class="cabLoja"><span class="cnwrap"><span class="cn">${esc(g.loja)}</span>${(c&&c[4])?`<a class="mapsPin" href="${esc(c[4])}" target="_blank" rel="noopener" aria-label="Ver ${esc(g.loja)} no mapa" title="Ver no mapa">${svgMap()}</a>`:""}</span><span class="cm num">${g.nItens} ${g.nItens>1?"itens":"item"} · ${rs(g.subtotal)}</span></div>
-      <div class="citens">${itensHTML}</div>
-      ${acao || (online ? `<p class="lojaonline-nota">Loja online — toque em “Consultar ofertas” para comparar e comprar cada item.</p>` : "")}
+  }
+  return `<div class="painel cart ${g.comprada?"comprada":""}">
+    <div class="cabLoja"><span class="cnwrap"><span class="cn">${esc(g.loja)}</span>${mapsPin}</span><span class="cm num">${g.nItens} ${g.nItens>1?"itens":"item"} · ${rs(g.subtotal)}</span></div>
+    <button class="jaComprou" role="checkbox" aria-checked="${g.comprada}" data-loja="${esc(g.loja)}"><span class="jbox"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>${g.comprada?"Comprado nesta loja":"Já comprei tudo desta loja"}</button>
+    <div class="citens">${itensHTML}</div>
+    ${acao}
+  </div>`;
+}
+
+function telaCarrinho(){
+  const grupos = carrinho();
+  if(!grupos.length)
+    return `<div class="vazio">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2.5 3H5l2.3 11.4a1.5 1.5 0 001.5 1.2h8.4a1.5 1.5 0 001.5-1.2L21.5 7H6.2"/></svg>
+      <p><b>Seu carrinho está vazio.</b><br>Na calculadora, escolha a loja e marque o ✓ para adicionar os itens aqui.</p>
+      <button class="voltarCalc">Ir para a calculadora</button>
     </div>`;
+  const ativos = grupos.filter(g=>!g.comprada);
+  const comprados = grupos.filter(g=>g.comprada);
+  const totalAtivo = ativos.reduce((a,g)=>a+g.subtotal,0);
+  const nAtivo = ativos.reduce((a,g)=>a+g.nItens,0);
+  let h=`<div class="cartTotal"><div><div class="ct-l">Total do carrinho</div><div class="ct-s">${nAtivo} ${nAtivo!==1?"itens":"item"} em ${ativos.length} ${ativos.length!==1?"lojas":"loja"}</div></div><b class="num">${rs(totalAtivo)}</b></div>`;
+  if(!ativos.length) h+=`<p class="hint" style="margin:0 16px 4px">Tudo o que estava no carrinho já foi marcado como comprado. 🎖</p>`;
+  for(const g of ativos) h+=cardLojaCarrinho(g);
+  if(comprados.length){
+    h+=`<h2 class="grupo" style="margin-top:24px">Já comprados <span class="rt">${comprados.length} ${comprados.length>1?"lojas":"loja"}</span></h2>`;
+    for(const g of comprados) h+=cardLojaCarrinho(g);
   }
   return h;
 }
@@ -800,7 +835,7 @@ function desenhar(){
     t==="online" ? telaOnline() :
     t==="bizus" ? telaBizus() : telaCalc();
   document.querySelectorAll(".abas button").forEach(b=>b.setAttribute("aria-selected", b.dataset.t===t));
-  const nc = carrinho().reduce((a,g)=>a+g.nItens,0);
+  const nc = carrinho().filter(g=>!g.comprada).reduce((a,g)=>a+g.nItens,0);   // conta só o que falta comprar
   const bd = $("#cartBadge"); if(bd){ bd.textContent = nc; bd.style.display = nc ? "grid" : "none"; }
   topo();
 }
@@ -826,12 +861,18 @@ document.addEventListener("click", ev => {
     return;
   }
 
+  const jc = ev.target.closest(".jaComprou");
+  if(jc){ const loja=jc.dataset.loja; E.compradoLoja[loja]=!E.compradoLoja[loja]; salvar(); desenhar(); return; }
+
   const art = ev.target.closest(".item");
   if(!art) return;
   const id = art.dataset.id;
   const it = visiveis().find(x=>x.id===id); if(!it) return;
 
-  if(ev.target.closest(".tick")){ E.ok[id]=!E.ok[id]; salvar(); desenhar(); return; }
+  if(ev.target.closest(".tick")){
+    if(lojaDe(it)===""){ art.classList.add("aberto"); return; }   // sem loja → abre a lista pra escolher primeiro
+    E.cart[id]=!E.cart[id]; salvar(); desenhar(); return;         // checkbox = adicionar/remover do carrinho
+  }
 
   const passo = ev.target.closest(".step button");
   if(passo){ E.qtd[id]=Math.max(0, qtdDe(it) + (+passo.dataset.d)); salvar(); desenhar(); return; }
@@ -843,8 +884,8 @@ document.addEventListener("click", ev => {
 });
 
 $("#btZerar").addEventListener("click", () => {
-  if(!confirm("Isso apaga suas quantidades, escolhas de loja e o que você já marcou como comprado. Continuar?")) return;
-  E = { qtd:{}, loja:{}, ok:{}, aba:E.aba };
+  if(!confirm("Isso apaga suas quantidades, escolhas de loja e o carrinho. Continuar?")) return;
+  E = { qtd:{}, loja:{}, cart:{}, compradoLoja:{}, aba:E.aba };
   salvar(); desenhar(); window.scrollTo(0,0);
 });
 
