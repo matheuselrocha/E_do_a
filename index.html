@@ -123,10 +123,6 @@ h2.grupo .rt b{color:var(--ink);font-weight:700}
 .lojaBtn .lojaNome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px;font-weight:600}
 .lojaBtn svg{width:13px;height:13px;stroke:var(--ink3);stroke-width:2;fill:none;flex:none;transition:transform .2s}
 .item.aberto .lojaBtn svg{transform:rotate(180deg)}
-.mapsBtn{display:inline-grid;place-items:center;width:34px;height:34px;flex:none;border:1px solid var(--rule);border-radius:8px;background:#fafaf7;color:var(--feito);text-decoration:none}
-.mapsBtn svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none}
-.mapsBtn:active{background:var(--bg)}
-.mapsBtn:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
 .lojaBtn.vazia{border-style:dashed;color:var(--ink3)}
 .lojaBtn.vazia .lojaNome{color:var(--ink3)}
 .sug{font-size:11.5px;color:var(--ink3);margin-top:7px}
@@ -255,9 +251,13 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 
 /* ---------- carrinho ---------- */
 .painel.cart{border-radius:13px;border:1px solid var(--rule);margin:0 12px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.cabLoja{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:10px;margin-bottom:4px;border-bottom:2px solid var(--rule)}
+.cabLoja{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:10px;margin-bottom:4px;border-bottom:2px solid var(--rule)}
+.cnwrap{display:flex;align-items:center;gap:8px;min-width:0}
 .cabLoja .cn{font-family:"Barlow Semi Condensed";font-size:17px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cabLoja .cm{font-size:12.5px;color:var(--ink2);font-weight:600;white-space:nowrap;flex:none}
+.mapsPin{display:inline-grid;place-items:center;width:28px;height:28px;flex:none;border:1px solid var(--rule);border-radius:7px;background:#fff;color:var(--feito);text-decoration:none}
+.mapsPin svg{width:15px;height:15px;stroke:currentColor;stroke-width:1.9;fill:none}
+.mapsPin:active{background:var(--bg)}
 .ci{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule2)}
 .ci:last-child{border-bottom:none}
 .ci .q{font-family:"Barlow Semi Condensed";font-weight:700;color:var(--fogo);min-width:28px}
@@ -576,8 +576,6 @@ function chevron(){ return `<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></s
 function itemHTML(it){
   const q=qtdDe(it), lj=lojaDe(it), un=it.p[lj]||0, ok=!!E.ok[it.id], zer=q<=0, semLoja=lj==="";
   const ord=Object.entries(it.p).sort((a,b)=>a[1]-b[1]), min=ord[0][1];
-  const cLoja = semLoja ? null : contatoDe(lj);
-  const mapsUrl = (cLoja && cLoja[4]) ? cLoja[4] : "";       // link do Google Maps da loja escolhida
   const comp=ord.map(([l,p])=>`
     <button class="lj ${p===min?"menor":""}" data-loja="${esc(l)}" role="radio" aria-checked="${l===lj}">
       <span class="r0"></span>
@@ -599,8 +597,6 @@ function itemHTML(it){
           <button class="lojaBtn ${semLoja?"vazia":""}" aria-label="Escolher loja para ${esc(it.nome)}">
             <span class="lojaNome">${semLoja?"Escolher loja":esc(lj)}</span>${chevron()}
           </button>
-          ${mapsUrl?`<a class="mapsBtn" href="${esc(mapsUrl)}" target="_blank" rel="noopener" aria-label="Ver ${esc(lj)} no mapa" title="Ver no mapa">
-            <svg viewBox="0 0 24 24"><path d="M12 21s-7-6.3-7-11a7 7 0 0114 0c0 4.7-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg></a>`:""}
         </div>
         <div class="sug num" title="Quantidade sugerida na planilha">sugerido: ${it.qtd}</div>
       </div>
@@ -766,7 +762,7 @@ function telaCarrinho(){
         <span class="pv num">${rs(i.sub)}</span></div>`;
     }).join("");
     h+=`<div class="painel cart">
-      <div class="cabLoja"><span class="cn">${esc(g.loja)}</span><span class="cm num">${g.nItens} ${g.nItens>1?"itens":"item"} · ${rs(g.subtotal)}</span></div>
+      <div class="cabLoja"><span class="cnwrap"><span class="cn">${esc(g.loja)}</span>${(c&&c[4])?`<a class="mapsPin" href="${esc(c[4])}" target="_blank" rel="noopener" aria-label="Ver ${esc(g.loja)} no mapa" title="Ver no mapa">${svgMap()}</a>`:""}</span><span class="cm num">${g.nItens} ${g.nItens>1?"itens":"item"} · ${rs(g.subtotal)}</span></div>
       <div class="citens">${itensHTML}</div>
       ${acao || (online ? `<p class="lojaonline-nota">Loja online — toque em “Consultar ofertas” para comparar e comprar cada item.</p>` : "")}
     </div>`;
@@ -829,8 +825,6 @@ document.addEventListener("click", ev => {
     });
     return;
   }
-
-  if(ev.target.closest(".mapsBtn")) return;   // link do mapa abre sozinho, não mexe no item
 
   const art = ev.target.closest(".item");
   if(!art) return;
