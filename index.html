@@ -358,6 +358,11 @@ const CFG = {
   abaOnline: "Tabela Suporte - Mobile",
   // Aba de contatos das lojas (coluna A, em blocos: nome / Telefone: / @instagram / link do Maps em texto).
   abaContatos: "Contatos",
+  // Métricas (PostHog). Cole a "Project API Key" (começa com phc_) para ligar. Vazio = não coleta nada.
+  analytics: {
+    posthogKey: "",                          // <- cole aqui a chave do PostHog
+    posthogHost: "https://us.i.posthog.com"  // use https://eu.i.posthog.com se criar a conta na região Europa
+  },
   // A leitura detecta os blocos pelos DIVISORES na coluna A ("COTURNOS", "EQUIPAMENTOS…"),
   // então adicionar/remover/esvaziar linhas na planilha não quebra nada.
   // Coluna A = categoria, B = item, C = qtd sugerida; as lojas começam na coluna D.
@@ -392,6 +397,20 @@ E.compradoLoja ||= {};     // lojas marcadas como "já comprou" na aba Carrinho
 const salvar = () => guarda.gravar(CHAVE, E);
 
 let DADOS = null, AO_VIVO = false;
+
+/* =========================================================================
+   Métricas — PostHog (só liga se CFG.analytics.posthogKey estiver preenchida)
+   Eventos: pageview (automático), add_ao_carrinho{loja,item}, whatsapp_click{loja,valor,itens}, consultar_ofertas{cat}
+   ========================================================================= */
+function initAnalytics(){
+  const A = CFG.analytics || {};
+  if(!A.posthogKey) return;                       // sem chave → não coleta nada
+  try{
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    window.posthog.init(A.posthogKey, { api_host:A.posthogHost, capture_pageview:true, autocapture:false, persistence:"localStorage" });
+  }catch(e){ console.warn("Analytics não iniciou:", e.message); }
+}
+function track(ev, props){ try{ if(window.posthog && window.posthog.capture) window.posthog.capture(ev, props||{}); }catch(e){} }
 
 /* =========================================================================
    Leitura da planilha (gviz — público, sem chave, sem backend)
@@ -771,7 +790,7 @@ function cardLojaCarrinho(g){
     if(c){
       const tel=(c[1]||"").replace(/\D/g,""), ig=c[3]||"";
       if(tel){
-        acao=`<a class="abrir" href="https://wa.me/55${tel}?text=${encodeURIComponent(msgWhats(g))}" target="_blank" rel="noopener">Enviar para ${esc(g.loja)}
+        acao=`<a class="abrir" data-wa="${esc(g.loja)}" data-valor="${g.subtotal}" data-itens="${g.nItens}" href="https://wa.me/55${tel}?text=${encodeURIComponent(msgWhats(g))}" target="_blank" rel="noopener">Enviar para ${esc(g.loja)}
           <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>`;
         if(ig) acao+=`<a class="ig-link" href="${esc(ig)}" target="_blank" rel="noopener">ou falar pelo Instagram</a>`;
       } else if(ig){
@@ -855,9 +874,13 @@ document.addEventListener("click", ev => {
 
   if(ev.target.closest(".voltarCalc")){ E.aba="calc"; salvar(); desenhar(); window.scrollTo(0,0); return; }
 
+  const wa = ev.target.closest("a[data-wa]");
+  if(wa) track("whatsapp_click", { loja:wa.dataset.wa, valor:+wa.dataset.valor||0, itens:+wa.dataset.itens||0 });  // sem return: o link segue abrindo
+
   const cons = ev.target.closest(".consultar");
   if(cons){
     const cat = cons.dataset.cat;
+    track("consultar_ofertas", { categoria:cat });
     E.aba="online"; salvar(); desenhar();
     requestAnimationFrame(()=>{
       const el = [...document.querySelectorAll("#tela .card")].find(c=>c.dataset.cat===cat);
@@ -877,7 +900,7 @@ document.addEventListener("click", ev => {
     if(act==="tudo"){
       const todosSel = alvos.length>0 && alvos.every(emCarrinho);
       if(todosSel){ for(const it of alvos) E.cart[it.id]=false; }                    // desmarca tudo (mantém as lojas)
-      else { for(const it of alvos){ if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja; E.cart[it.id]=true; } }  // marca tudo (loja mais barata p/ quem não tem)
+      else { for(const it of alvos){ if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja; if(!E.cart[it.id]){ E.cart[it.id]=true; track("add_ao_carrinho",{loja:lojaDe(it), item:it.nome, valor:unDe(it)*qtdDe(it), qtd:qtdDe(it), via:"selecionar_tudo"}); } } }
     } else if(act==="baratas"){
       for(const it of alvos) E.loja[it.id]=melhor(it).loja;                          // só designa a mais barata, sem mexer no carrinho
     } else if(act==="limpar"){
@@ -894,7 +917,9 @@ document.addEventListener("click", ev => {
 
   if(ev.target.closest(".tick")){
     if(lojaDe(it)===""){ art.classList.add("aberto"); return; }   // sem loja → abre a lista pra escolher primeiro
-    E.cart[id]=!E.cart[id]; salvar(); desenhar(); return;         // checkbox = adicionar/remover do carrinho
+    E.cart[id]=!E.cart[id];                                        // checkbox = adicionar/remover do carrinho
+    if(E.cart[id]) track("add_ao_carrinho", { loja:lojaDe(it), item:it.nome, valor:unDe(it)*qtdDe(it), qtd:qtdDe(it) });
+    salvar(); desenhar(); return;
   }
 
   const passo = ev.target.closest(".step button");
@@ -909,6 +934,7 @@ document.addEventListener("click", ev => {
 // Recarrega os preços quando você volta pro app
 document.addEventListener("visibilitychange", () => { if(!document.hidden) carregar(); });
 
+initAnalytics();
 carregar();
 </script>
 </body>
