@@ -682,7 +682,7 @@ function telaLojas(){
         <div class="n">${esc(nome)}</div>
         <div class="i">${esc(tel)}${insta?" · "+esc(insta):""}</div>
       </div><div class="acts">
-        ${zap?`<a class="ico zap" href="https://wa.me/55${zap}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(nome)}">${svgZap()}</a>`:""}
+        ${zap?`<a class="ico zap" href="https://wa.me/55${zap}?text=${encodeURIComponent("Olá! "+REF_PLATAFORMA)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(nome)}">${svgZap()}</a>`:""}
         ${igurl?`<a class="ico ig" href="${esc(igurl)}" target="_blank" rel="noopener" aria-label="Instagram de ${esc(nome)}">${svgIg()}</a>`:""}
         ${maps?`<a class="ico map" href="${esc(maps)}" target="_blank" rel="noopener" aria-label="Localização de ${esc(nome)} no mapa">${svgMap()}</a>`:""}
       </div></div>`;
@@ -774,9 +774,10 @@ function categoriaOnline(nomeItem, catItem){
   return bestSc>=1 ? best : null;
 }
 
+const REF_PLATAFORMA = "Vim por meio da plataforma Enxoval do Aprovado (www.enxovaldoaprovado.com.br).";
 function msgWhats(g){
   const linhas = g.itens.map(i=>`• ${i.q}x ${i.nome}`).join("\n");
-  return `Olá! Sou do CFP CBMDF 2026 e gostaria de comprar na ${g.loja}:\n\n${linhas}\n\nPode me passar valores, formas de pagamento e disponibilidade? Obrigado(a)!`;
+  return `Olá! Sou do CFP CBMDF 2026 e gostaria de comprar na ${g.loja}:\n\n${linhas}\n\nPode me passar valores, formas de pagamento e disponibilidade? Obrigado(a)!\n\n${REF_PLATAFORMA}`;
 }
 function cardLojaCarrinho(g){
   const c = contatoDe(g.loja), online = ehOnline(g.loja);
