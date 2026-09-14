@@ -1,14 +1,14 @@
 {
-  "name": "Enxoval CFP CBMDF 2026",
-  "short_name": "Enxoval CBMDF",
-  "description": "Calculadora e pesquisa de preços do enxoval obrigatório do CFP CBMDF 2026.",
+  "name": "Enxoval do Aprovado",
+  "short_name": "Enxoval",
+  "description": "Comparador de preço do enxoval obrigatório de concursos militares. CFP CBMDF 2026.",
   "lang": "pt-BR",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#161613",
-  "theme_color": "#161613",
+  "background_color": "#EFEEE8",
+  "theme_color": "#22291A",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }

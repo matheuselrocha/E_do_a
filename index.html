@@ -3,40 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Enxoval CFP CBMDF 2026</title>
+<title>Enxoval do Aprovado — CFP CBMDF 2026</title>
 <meta name="author" content="Aprovados CFP CBMDF 2026">
 <meta name="robots" content="index,follow">
 <meta name="description" content="Calculadora e pesquisa de preços do enxoval obrigatório do CFP CBMDF 2026.">
 <!-- Cartão de compartilhamento (WhatsApp/redes) -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Enxoval CFP CBMDF 2026">
-<meta property="og:title" content="Calculadora do Enxoval — CFP CBMDF 2026">
+<meta property="og:site_name" content="Enxoval do Aprovado">
+<meta property="og:title" content="Enxoval do Aprovado — CFP CBMDF 2026">
 <meta property="og:description" content="Compare os preços das lojas, monte seu orçamento e acompanhe o que já comprou.">
-<meta property="og:url" content="https://matheuselrocha.github.io/enxoval-cbmdf/">
-<meta property="og:image" content="https://matheuselrocha.github.io/enxoval-cbmdf/og.png">
+<meta property="og:url" content="https://enxovaldoaprovado.com.br/">
+<meta property="og:image" content="https://enxovaldoaprovado.com.br/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Calculadora do Enxoval — CFP CBMDF 2026">
+<meta name="twitter:title" content="Enxoval do Aprovado — CFP CBMDF 2026">
 <meta name="twitter:description" content="Compare os preços das lojas, monte seu orçamento e acompanhe o que já comprou.">
-<meta name="twitter:image" content="https://matheuselrocha.github.io/enxoval-cbmdf/og.png">
-<meta name="theme-color" content="#161613">
+<meta name="twitter:image" content="https://enxovaldoaprovado.com.br/og.png">
+<meta name="theme-color" content="#22291A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Enxoval CBMDF">
+<meta name="apple-mobile-web-app-title" content="Enxoval">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23161613'/%3E%3Cpath d='M50 16 22 28v20c0 17 12 29 28 36 16-7 28-19 28-36V28z' fill='none' stroke='%23c4321e' stroke-width='7' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2322291A'/%3E%3Ctext x='50' y='59' text-anchor='middle' font-family='Archivo,Helvetica,Arial' font-weight='800' font-size='40' fill='%23F2F1EA'%3EEA%3C/text%3E%3Crect x='32' y='70' width='36' height='7' fill='%23E4670E'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#e9e9e3; --card:#fff; --ink:#181815; --ink2:#68685f; --ink3:#9c9c92;
-  --rule:#dbdbd2; --rule2:#ecece5; --fogo:#c4321e; --fogo-d:#a72916; --feito:#3c6b4c;
-  --topo:#161613; --topo2:#25251f; --sombra:0 1px 0 rgba(0,0,0,.05);
+  --bg:#EFEEE8; --card:#fff; --ink:#16180F; --ink2:#4B5054; --ink3:#9A9A90;
+  --rule:#DCDACF; --rule2:#ECEBE3; --fogo:#E4670E; --fogo-d:#B44F07; --feito:#6B8A46;
+  --topo:#22291A; --topo2:#2E3626; --sombra:0 1px 0 rgba(0,0,0,.05);
+  --marca:#3E4A2F;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
@@ -57,23 +58,25 @@ a{color:inherit}
   padding:calc(12px + env(safe-area-inset-top)) 16px 12px;
   box-shadow:0 6px 18px -12px rgba(0,0,0,.5);
 }
-.topo .hd{display:flex;align-items:center;gap:8px;margin-bottom:9px}
-.topo .hd .mk{font-family:"Barlow Semi Condensed";font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#c9c9bf}
-.topo .hd .mk b{color:var(--fogo)}
-.topo .hd .tela{margin-left:auto;font-size:11.5px;color:#8f8f85;letter-spacing:.04em;text-transform:uppercase}
+.topo .hd{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.topo .hd .sig{width:24px;height:24px;flex:none;background:var(--marca);display:grid;place-items:center}
+.topo .hd .sig svg{width:14px;height:14px;fill:none;stroke:var(--fogo);stroke-width:9;stroke-linecap:square;display:block}
+.topo .hd .mk{font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:12px;line-height:1;letter-spacing:-.01em;text-transform:uppercase;color:#F2F1EA}
+.topo .hd .mk b{display:block;margin-top:2px;font-weight:700;font-size:6.5px;letter-spacing:.11em;color:#A9B097}
+.topo .hd .tela{margin-left:auto;font-size:10px;font-weight:600;color:#8A9179;letter-spacing:.05em;text-transform:uppercase}
 .falta{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .falta b{font-family:"Barlow Semi Condensed";font-size:40px;font-weight:700;line-height:.92;letter-spacing:-.01em}
 .falta b.cta{font-size:25px;letter-spacing:0;line-height:1.1}
-.falta span{font-size:13.5px;color:#a6a69c}
-.sub{font-size:13px;color:#a6a69c;margin-top:5px}
-.sub b{color:#e7e7df;font-weight:600}
-.barra{height:5px;background:#39392f;border-radius:3px;margin-top:11px;overflow:hidden}
+.falta span{font-size:13.5px;color:#A0A597}
+.sub{font-size:13px;color:#A0A597;margin-top:5px}
+.sub b{color:#E9E8E0;font-weight:600}
+.barra{height:5px;background:#39412E;border-radius:3px;margin-top:11px;overflow:hidden}
 .barra i{display:block;height:100%;background:var(--fogo);width:0;border-radius:3px;transition:width .3s ease}
 .barra i.full{background:var(--feito)}
-.fonte{display:flex;align-items:center;gap:6px;font-size:11px;color:#84847a;margin-top:9px;padding-top:8px;border-top:1px solid #333329}
-.fonte .pt{width:6px;height:6px;border-radius:50%;background:#84847a;flex:none}
-.fonte .pt.viva{background:#6fae7d;box-shadow:0 0 0 3px rgba(111,174,125,.18)}
-.fonte a{color:#adad9f;margin-left:auto;text-decoration:none;border-bottom:1px solid #45453a;padding-bottom:1px}
+.fonte{display:flex;align-items:center;gap:6px;font-size:11px;color:#858B76;margin-top:9px;padding-top:8px;border-top:1px solid #333B27}
+.fonte .pt{width:6px;height:6px;border-radius:50%;background:#858B76;flex:none}
+.fonte .pt.viva{background:#8FBF5F;box-shadow:0 0 0 3px rgba(143,191,95,.18)}
+.fonte a{color:#AEB49E;margin-left:auto;text-decoration:none;border-bottom:1px solid #47503A;padding-bottom:1px}
 
 /* ---------- filtros ---------- */
 .filtros{display:flex;gap:6px;padding:12px 16px 2px}
@@ -81,12 +84,12 @@ a{color:inherit}
   flex:1;border:1px solid var(--rule);background:var(--card);color:var(--ink2);
   padding:8px 6px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;min-height:38px;
 }
-.chip[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#f3f3ee}
+.chip[aria-pressed=true]{background:var(--marca);border-color:var(--marca);color:#f3f3ee}
 .chip:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
 
 h2.grupo{
   display:flex;align-items:baseline;gap:8px;
-  font-family:"Barlow Semi Condensed";font-size:12.5px;font-weight:700;letter-spacing:.08em;
+  font-family:Archivo,system-ui,sans-serif;font-size:12px;font-weight:700;letter-spacing:.1em;
   color:var(--ink2);margin:20px 16px 8px;text-transform:uppercase;
 }
 h2.grupo .sm{font-weight:600;color:var(--fogo);letter-spacing:.02em}
@@ -100,7 +103,7 @@ h2.grupo .rt b{color:var(--ink);font-weight:700}
 .item:first-child{border-top:none}
 .linha{display:flex;align-items:flex-start;gap:11px;padding:11px 15px 12px}
 .tick{
-  flex:none;width:24px;height:24px;margin-top:2px;border:1.5px solid #c0c0b6;border-radius:6px;
+  flex:none;width:24px;height:24px;margin-top:2px;border:1.5px solid #C4C2B6;border-radius:6px;
   background:transparent;cursor:pointer;display:grid;place-items:center;padding:0;
 }
 .tick svg{width:14px;height:14px;stroke:#fff;stroke-width:2.6;fill:none;opacity:0}
@@ -130,7 +133,7 @@ h2.grupo .rt b{color:var(--ink);font-weight:700}
 .dir{text-align:right;flex:none;padding-left:2px;min-width:74px}
 .dir .v{font-family:"Barlow Semi Condensed";font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.05}
 .dir .un{font-size:11px;color:var(--ink3);margin-top:1px}
-.item.nocart{background:linear-gradient(90deg,rgba(60,107,76,.07),transparent)}
+.item.nocart{background:linear-gradient(90deg,rgba(107,138,70,.08),transparent)}
 .item.nocart .linha{box-shadow:inset 3px 0 0 var(--feito)}
 .item.zerado{opacity:.62}
 .item.zerado .dir .v{color:var(--ink3)}
@@ -138,7 +141,7 @@ h2.grupo .rt b{color:var(--ink);font-weight:700}
 /* ---------- expansão: comparação de lojas ---------- */
 .exp{display:none;padding:2px 15px 14px 50px}
 .item.aberto .exp{display:block}
-.exp .lbl{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);font-weight:700;margin:2px 0 6px}
+.exp .lbl{font-family:Archivo,system-ui,sans-serif;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);font-weight:700;margin:2px 0 7px}
 .lj{
   display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 10px;margin-bottom:3px;
   border:1px solid transparent;border-radius:8px;background:#f6f6f1;cursor:pointer;color:var(--ink);
@@ -162,13 +165,13 @@ h2.grupo .rt b{color:var(--ink);font-weight:700}
 .rank .n{flex:1;font-size:14.5px;min-width:0;font-weight:600}
 .rank .n small{display:block;color:var(--ink3);font-size:12px;font-weight:500;margin-top:1px}
 .rank .p{font-family:"Barlow Semi Condensed";font-size:18px;font-weight:700}
-.rank.top{background:linear-gradient(90deg,rgba(60,107,76,.08),transparent);margin:0 -16px;padding:11px 16px}
+.rank.top{background:linear-gradient(90deg,rgba(107,138,70,.09),transparent);margin:0 -16px;padding:11px 16px}
 .rank.top .pos{color:var(--feito)}
 .rank.top .p{color:var(--feito)}
 .rank .cob{flex:none;font-family:"Barlow Semi Condensed";font-size:11px;font-weight:700;padding:2px 6px;border-radius:5px;background:var(--rule2);color:var(--ink2)}
-.rank .cob.baixa{background:#f4ddd8;color:var(--fogo-d)}
+.rank .cob.baixa{background:#F6E3D2;color:var(--fogo-d)}
 .aviso{font-size:12.5px;color:var(--ink2);margin:10px 16px 2px;line-height:1.5;
-  border-left:3px solid var(--fogo);padding:8px 0 8px 11px;background:linear-gradient(90deg,rgba(196,50,30,.05),transparent)}
+  border-left:3px solid var(--fogo);padding:8px 0 8px 11px;background:linear-gradient(90deg,rgba(228,103,14,.06),transparent)}
 .aviso b{color:var(--ink)}
 table.pag{width:100%;border-collapse:collapse;font-size:13.5px}
 table.pag td{padding:9px 0;border-bottom:1px solid var(--rule2);vertical-align:top}
@@ -188,7 +191,7 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .ct .acts{display:flex;gap:6px;flex:none}
 .ico{width:38px;height:38px;flex:none;border-radius:9px;display:grid;place-items:center;text-decoration:none;border:1px solid var(--rule)}
 .ico svg{width:19px;height:19px}
-.ico.zap{background:#25391f;border-color:#25391f}
+.ico.zap{background:#2A331F;border-color:#2A331F}
 .ico.zap svg{fill:#eafae6}
 .ico.ig{background:#fff}
 .ico.ig svg{fill:none;stroke:var(--ink);stroke-width:1.8}
@@ -209,8 +212,8 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .oinfo{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
 .ot{font-size:13px;font-weight:500;color:var(--ink);line-height:1.35;margin-bottom:10px}
 .abrir.sm{width:auto;display:inline-flex;padding:9px 14px;font-size:13px;border-radius:8px;margin-top:auto}
-.abrir{display:flex;align-items:center;justify-content:center;gap:7px;padding:11px;background:var(--fogo);color:#fff;
-  text-align:center;border-radius:9px;text-decoration:none;font-weight:700;font-size:14px}
+.abrir{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px;background:var(--fogo);color:#fff;
+  text-align:center;border-radius:9px;text-decoration:none;font-family:Archivo,system-ui,sans-serif;font-weight:700;font-size:14px;letter-spacing:.01em}
 .abrir svg{width:15px;height:15px;stroke:#fff;stroke-width:2;fill:none}
 .abrir:active{background:var(--fogo-d)}
 .outras{margin-top:8px;font-size:13px}
@@ -239,7 +242,7 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 /* ---------- abas ---------- */
 .abas{
   position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;justify-content:center;
-  background:rgba(251,251,247,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  background:rgba(247,246,241,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom);
 }
 .abas .inner{display:flex;width:100%;max-width:480px}
@@ -250,7 +253,7 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .abas button svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.7;fill:none}
 .abas button[aria-selected=true]{color:var(--fogo)}
 .ico-wrap{position:relative;display:inline-grid;place-items:center}
-.badge{position:absolute;top:-6px;right:-11px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--fogo);color:#fff;font-size:10px;font-weight:700;place-items:center;line-height:1;font-family:Barlow,sans-serif;box-shadow:0 0 0 2px rgba(251,251,247,.94)}
+.badge{position:absolute;top:-6px;right:-11px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--fogo);color:#fff;font-size:10px;font-weight:700;place-items:center;line-height:1;font-family:Barlow,sans-serif;box-shadow:0 0 0 2px rgba(247,246,241,.94)}
 
 /* ---------- carrinho ---------- */
 .painel.cart{border-radius:13px;border:1px solid var(--rule);margin:0 12px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
@@ -271,12 +274,12 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .consultar svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.3;fill:none}
 .lojaonline-nota{margin-top:11px;font-size:12.5px;color:var(--ink2);line-height:1.45;border-left:3px solid var(--fogo);padding:2px 0 2px 10px}
 .card.destaque{outline:2px solid var(--fogo);outline-offset:3px;border-radius:13px}
-.cartTotal{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ink);color:#f3f3ee;margin:12px 12px 14px;padding:13px 16px;border-radius:13px}
-.cartTotal .ct-l{font-size:11.5px;color:#a6a69c;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
-.cartTotal .ct-s{font-size:12.5px;color:#cfcfc6;margin-top:3px}
+.cartTotal{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--topo);color:#f3f3ee;margin:12px 12px 14px;padding:13px 16px;border-radius:13px}
+.cartTotal .ct-l{font-family:Archivo,system-ui,sans-serif;font-size:11.5px;color:#A0A597;font-weight:700;text-transform:uppercase;letter-spacing:.1em}
+.cartTotal .ct-s{font-size:12.5px;color:#CFD0C6;margin-top:3px}
 .cartTotal b{font-family:"Barlow Semi Condensed";font-size:27px;font-weight:700;white-space:nowrap}
 .jaComprou{display:flex;align-items:center;gap:9px;width:100%;background:none;border:none;padding:9px 0 3px;font:inherit;font-size:13px;color:var(--ink2);cursor:pointer;text-align:left}
-.jaComprou .jbox{width:20px;height:20px;flex:none;border:1.5px solid #c0c0b6;border-radius:5px;display:grid;place-items:center;background:transparent}
+.jaComprou .jbox{width:20px;height:20px;flex:none;border:1.5px solid #C4C2B6;border-radius:5px;display:grid;place-items:center;background:transparent}
 .jaComprou .jbox svg{width:12px;height:12px;stroke:#fff;stroke-width:2.6;fill:none;opacity:0}
 .jaComprou[aria-checked=true] .jbox{background:var(--feito);border-color:var(--feito)}
 .jaComprou[aria-checked=true] .jbox svg{opacity:1}
@@ -290,8 +293,8 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .vazio{text-align:center;padding:56px 30px 40px;color:var(--ink2)}
 .vazio svg{width:54px;height:54px;stroke:var(--ink3);stroke-width:1.4;fill:none;margin-bottom:14px}
 .vazio p{line-height:1.55;font-size:14.5px;margin:0}
-.voltarCalc{margin-top:18px;background:var(--ink);color:#f3f3ee;border:none;border-radius:9px;padding:12px 20px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px}
-.voltarCalc:active{background:#000}
+.voltarCalc{margin-top:18px;background:var(--marca);color:#f3f3ee;border:none;border-radius:9px;padding:12px 20px;font-family:Archivo,system-ui,sans-serif;font-size:14px;font-weight:700;cursor:pointer;min-height:44px}
+.voltarCalc:active{background:#2A331F}
 .abas button[aria-selected=true] svg{stroke-width:2}
 .abas button:focus-visible{outline:2px solid var(--fogo);outline-offset:-3px}
 
@@ -302,7 +305,8 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 <div class="app">
   <header class="topo">
     <div class="hd">
-      <span class="mk">Enxoval <b>·</b> CFP CBMDF 2026</span>
+      <span class="sig" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 25 L18 36 L41 11"/></svg></span>
+      <span class="mk">Enxoval<b>do Aprovado</b></span>
       <span class="tela" id="tTela">Calculadora</span>
     </div>
     <div class="falta"><b class="num" id="tFalta">—</b><span id="tLabel">ainda a comprar</span></div>
