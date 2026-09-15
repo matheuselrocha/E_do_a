@@ -301,6 +301,66 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .abas button:focus-visible{outline:2px solid var(--fogo);outline-offset:-3px}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ============================================================
+   DESKTOP (≥ 880px) — aproveita a tela larga do PC.
+   Só afeta telas grandes; a versão mobile fica inalterada.
+   ============================================================ */
+@media (min-width:880px){
+  body{padding-top:60px;padding-bottom:44px}
+  .app{max-width:1160px}
+
+  /* Navegação vira barra fixa no TOPO (abas horizontais) */
+  .abas{top:0;bottom:auto;border-top:none;border-bottom:1px solid var(--rule)}
+  .abas .inner{max-width:1160px}
+  .abas button{flex-direction:row;align-items:center;gap:8px;min-height:60px;font-size:13.5px;padding:0 6px}
+  .abas button svg{width:20px;height:20px}
+  .abas button[aria-selected=true]{box-shadow:inset 0 -3px 0 var(--fogo)}
+  .badge{top:-6px;right:-13px}
+
+  /* Cabeçalho/orçamento: fica logo abaixo da barra de navegação */
+  .topo{top:60px;border-radius:0 0 18px 18px;padding:20px 28px 16px}
+  .topo .hd{margin-bottom:12px}
+  .topo .hd .mk{font-size:19px}
+  .falta,.sub,.barra,.fonte{max-width:620px}
+  .falta b{font-size:46px}
+
+  .hint{max-width:780px}
+  .ferramentas{max-width:640px}
+  .rodape{max-width:820px}
+
+  /* CALCULADORA — itens em grade de 2 colunas (cada item vira um cartão) */
+  #tela[data-aba="calc"] .lista{
+    display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;
+    background:transparent;border:none;padding:0 14px;
+  }
+  #tela[data-aba="calc"] .lista .item{border:1px solid var(--rule);border-radius:12px;background:var(--card)}
+  #tela[data-aba="calc"] .lista .item:first-child{border-top:1px solid var(--rule)}
+  #tela[data-aba="calc"] .lista .item.nocart .linha{border-radius:12px}
+
+  /* ONLINE — cards de categoria em grade responsiva */
+  #tela[data-aba="online"]{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+    gap:16px;align-items:start;padding:0 14px;
+  }
+  #tela[data-aba="online"]>h2.grupo{grid-column:1/-1;margin:20px 2px 4px}
+  #tela[data-aba="online"] .card{margin:0}
+
+  /* CARRINHO — painéis de loja em grade de 2 colunas */
+  #tela[data-aba="carrinho"]{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start}
+  #tela[data-aba="carrinho"]>.cartTotal,
+  #tela[data-aba="carrinho"]>h2.grupo,
+  #tela[data-aba="carrinho"]>.hint,
+  #tela[data-aba="carrinho"]>.vazio{grid-column:1/-1}
+  #tela[data-aba="carrinho"] .painel.cart{margin:0 12px 16px}
+
+  /* LOJAS — contatos em 2 colunas (a tabela de pagamento fica cheia) */
+  #tela[data-aba="lojas"] .painel:has(.ct){display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
+
+  /* BIZUS — links distribuídos em 2 colunas dentro de cada grupo */
+  #tela[data-aba="bizus"] .painel.biz{column-count:2;column-gap:32px}
+  #tela[data-aba="bizus"] .painel.biz a{break-inside:avoid}
+}
 </style>
 </head>
 <body>
@@ -888,6 +948,7 @@ function telaBizus(){
 function desenhar(){
   if(!DADOS) return;
   const t=E.aba;
+  $("#tela").dataset.aba = t;                                   // marca a aba p/ o CSS (grades no desktop)
   $("#tela").innerHTML =
     t==="carrinho" ? telaCarrinho() :
     t==="lojas" ? telaLojas() :
