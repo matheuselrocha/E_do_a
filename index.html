@@ -324,7 +324,13 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
 .selbrand .sig svg{width:26px;height:26px;fill:none;stroke:var(--fogo);stroke-width:9;stroke-linecap:square;display:block}
 .selbrand .mk{font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:22px;line-height:1;letter-spacing:-.01em;text-transform:uppercase;text-align:left;color:#F6F5EE}
 .selbrand .mk b{display:block;margin-top:3px;font-weight:700;font-size:10.5px;letter-spacing:.12em;color:#B7BE9F}
-.seleyebrow{display:inline-block;font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--fogo);margin-bottom:14px;padding:6px 14px;border:1px solid rgba(228,103,14,.55);border-radius:999px;background:rgba(228,103,14,.08)}
+.sellema{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px}
+.sellema .louro{width:30px;height:13px}
+.sellema .seleyebrow{font-size:10.5px;letter-spacing:.12em;padding:6px 12px}
+.seleyebrow{display:inline-block;font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--fogo);padding:6px 14px;border:1px solid rgba(228,103,14,.55);border-radius:999px;background:rgba(228,103,14,.08)}
+/* folhas de louro douradas — detalhe sutil de honra militar */
+.louro{width:38px;height:16px;flex:none;color:#CBA968;opacity:.9;display:block}
+.louro-r{display:inline-flex;transform:scaleX(-1)}
 .seltit{font-family:Archivo,system-ui,sans-serif;font-size:26px;line-height:1.16;font-weight:800;letter-spacing:-.015em;margin:0 0 14px;color:#F8F7F0}
 .seltit .hl{color:var(--fogo)}
 .selsub{font-size:14.5px;color:#C8CABC;line-height:1.6;margin:0 auto 28px;max-width:404px}
@@ -342,7 +348,8 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
 .conc-opt .co-desc{display:block;font-size:12.5px;color:var(--ink2);margin-top:3px;line-height:1.3}
 .conc-opt .co-seta{margin-left:auto;flex:none;width:36px;height:36px;border-radius:50%;background:var(--fogo);color:#fff;display:grid;place-items:center;font-size:19px;font-weight:700;line-height:1;transition:transform .15s}
 .conc-opt:hover .co-seta{transform:translateX(3px)}
-.selpe{margin:26px 0 0;font-size:12.5px;color:#8E947D;letter-spacing:.02em}
+.selpe{display:flex;align-items:center;justify-content:center;gap:9px;margin:26px 0 0;font-size:12.5px;color:#8E947D;letter-spacing:.02em}
+.selpe .louro{width:30px;height:13px;opacity:.8}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
@@ -1016,6 +1023,23 @@ function telaBizus(){
 /* =========================================================================
    Tela inicial — seleção de concurso
    ========================================================================= */
+// Ramo de louro (dourado) — base à direita, ponta à esquerda; o lado direito é espelhado via CSS.
+const LOURO = `<svg class="louro" viewBox="0 0 56 24" aria-hidden="true">
+  <path d="M53 12 Q28 7 5 12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+  <g fill="currentColor">
+    <ellipse cx="45" cy="7"    rx="5.4" ry="2.3" transform="rotate(-32 45 7)"/>
+    <ellipse cx="36.5" cy="6"  rx="5.8" ry="2.4" transform="rotate(-30 36.5 6)"/>
+    <ellipse cx="27.5" cy="5.6" rx="5.8" ry="2.5" transform="rotate(-27 27.5 5.6)"/>
+    <ellipse cx="18.5" cy="6.2" rx="5.2" ry="2.3" transform="rotate(-24 18.5 6.2)"/>
+    <ellipse cx="10.5" cy="8"  rx="4.3" ry="2"   transform="rotate(-20 10.5 8)"/>
+    <ellipse cx="45" cy="17"   rx="5.4" ry="2.3" transform="rotate(32 45 17)"/>
+    <ellipse cx="36.5" cy="18" rx="5.8" ry="2.4" transform="rotate(30 36.5 18)"/>
+    <ellipse cx="27.5" cy="18.4" rx="5.8" ry="2.5" transform="rotate(27 27.5 18.4)"/>
+    <ellipse cx="18.5" cy="17.8" rx="5.2" ry="2.3" transform="rotate(24 18.5 17.8)"/>
+    <ellipse cx="10.5" cy="16"  rx="4.3" ry="2"   transform="rotate(20 10.5 16)"/>
+  </g>
+</svg>`;
+
 function telaSelecao(){
   const opts = CFG.concursos.map(c=>`
     <button type="button" class="conc-opt" data-conc="${esc(c.id)}" aria-label="${esc(c.rotulo)} ${esc(c.ano)} — ${esc(c.desc||"")}">
@@ -1030,12 +1054,12 @@ function telaSelecao(){
       <span class="sig" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 25 L18 36 L41 11"/></svg></span>
       <span class="mk">Enxoval<b>do Aprovado</b></span>
     </div>
-    <span class="seleyebrow">De aprovado, para aprovado</span>
+    <div class="sellema">${LOURO}<span class="seleyebrow">De aprovado, para aprovado</span><span class="louro-r">${LOURO}</span></div>
     <h1 class="seltit">Você passou. Agora a gente te ajuda com o <span class="hl">enxoval</span>.</h1>
     <p class="selsub">A gente já enfrentou essa mesma correria. Por isso reunimos os preços, as lojas e a lista completa dos itens obrigatórios do seu curso de formação — pra você comprar tudo com tranquilidade, economizando tempo e dinheiro nesta reta final.</p>
     <div class="selescolha">Escolha seu concurso</div>
     <div class="selopts">${opts}</div>
-    <p class="selpe">🎖 Feito por quem já passou pelo mesmo processo.</p>
+    <p class="selpe">${LOURO}<span>Feito por quem já passou pelo mesmo processo</span><span class="louro-r">${LOURO}</span></p>
   </div>`;
 }
 
