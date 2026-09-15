@@ -63,7 +63,7 @@ a{color:inherit}
 .topo .hd .sig svg{width:17px;height:17px;fill:none;stroke:var(--fogo);stroke-width:9;stroke-linecap:square;display:block}
 .topo .hd .mk{font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:16px;line-height:1;letter-spacing:-.01em;text-transform:uppercase;color:#F2F1EA}
 .topo .hd .mk b{display:block;margin-top:2px;font-weight:700;font-size:8.5px;letter-spacing:.11em;color:#A9B097}
-.topo .hd .concurso{font-family:Archivo,system-ui,sans-serif;font-weight:700;font-size:10px;letter-spacing:.06em;color:#A9B097;border:1px solid var(--marca);border-radius:5px;padding:3px 7px;text-transform:uppercase;white-space:nowrap}
+.topo .hd .concurso{font-family:Archivo,system-ui,sans-serif;font-weight:700;font-size:12.5px;letter-spacing:.04em;color:#F3F1EA;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:7px 13px;text-transform:uppercase;white-space:nowrap}
 .topo .hd .tela{margin-left:auto;font-size:10px;font-weight:600;color:#8A9179;letter-spacing:.05em;text-transform:uppercase}
 .falta{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .falta b{font-family:"Barlow Semi Condensed";font-size:40px;font-weight:700;line-height:.92;letter-spacing:-.01em}
@@ -306,10 +306,10 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 /* ---------- tela inicial: seleção de concurso ---------- */
 body.selecao{padding-bottom:0}
 body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!important}
-.topo .hd .concurso{display:inline-flex;align-items:center;gap:5px;background:transparent;cursor:pointer}
-.topo .hd .concurso svg{width:12px;height:12px;stroke:#A9B097;stroke-width:2;fill:none;flex:none}
-.topo .hd .concurso:hover{border-color:#A9B097}
-.topo .hd .concurso:active{background:rgba(255,255,255,.06)}
+.topo .hd .concurso{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.10);cursor:pointer;transition:background .15s,border-color .15s,transform .05s}
+.topo .hd .concurso svg{width:15px;height:15px;stroke:var(--fogo);stroke-width:2.3;fill:none;flex:none}
+.topo .hd .concurso:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.4)}
+.topo .hd .concurso:active{transform:scale(.97)}
 .topo .hd .concurso:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
 #tela[data-aba="selecao"]{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:32px 20px}
 .selkit{width:100%;max-width:440px;text-align:center}
