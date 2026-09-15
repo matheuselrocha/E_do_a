@@ -332,13 +332,15 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
   #tela[data-aba="calc"] .lista .item:first-child{border-top:1px solid var(--rule)}
   #tela[data-aba="calc"] .lista .item.nocart .linha{border-radius:12px}
 
-  /* ONLINE — cards de categoria em grade responsiva */
+  /* ONLINE — cards em colunas tipo "masonry": empacotam sem buracos,
+     mesmo com categorias de alturas bem diferentes. */
   #tela[data-aba="online"]{
-    display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
-    gap:16px;align-items:start;padding:0 14px;
+    column-width:330px;column-gap:16px;padding:0 14px;
   }
-  #tela[data-aba="online"]>h2.grupo{grid-column:1/-1;margin:20px 2px 4px}
-  #tela[data-aba="online"] .card{margin:0}
+  #tela[data-aba="online"]>h2.grupo{column-span:all;margin:20px 2px 8px}
+  #tela[data-aba="online"] .card{
+    margin:0 0 16px;break-inside:avoid;-webkit-column-break-inside:avoid;
+  }
 
   /* CARRINHO — painéis de loja em grade de 2 colunas */
   #tela[data-aba="carrinho"]{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start}
