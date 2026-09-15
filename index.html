@@ -306,8 +306,11 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 /* ---------- tela inicial: seleção de concurso ---------- */
 body.selecao{padding-bottom:0}
 body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!important}
-.topo .hd .concurso{background:transparent;cursor:pointer}
+.topo .hd .concurso{display:inline-flex;align-items:center;gap:5px;background:transparent;cursor:pointer}
+.topo .hd .concurso svg{width:12px;height:12px;stroke:#A9B097;stroke-width:2;fill:none;flex:none}
 .topo .hd .concurso:hover{border-color:#A9B097}
+.topo .hd .concurso:active{background:rgba(255,255,255,.06)}
+.topo .hd .concurso:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
 #tela[data-aba="selecao"]{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:32px 20px}
 .selkit{width:100%;max-width:440px;text-align:center}
 .selbrand{display:inline-flex;align-items:center;gap:11px;margin-bottom:28px}
@@ -391,7 +394,10 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
     <div class="hd">
       <span class="sig" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 25 L18 36 L41 11"/></svg></span>
       <span class="mk">Enxoval<b>do Aprovado</b></span>
-      <button type="button" class="concurso" id="tConcurso" title="Trocar concurso" aria-label="Trocar concurso">CBMDF</button>
+      <button type="button" class="concurso" id="tConcurso" title="Trocar concurso" aria-label="Trocar concurso">
+        <span id="tConcursoNome">CBMDF</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>
+      </button>
       <span class="tela" id="tTela">Calculadora</span>
     </div>
     <div class="falta"><b class="num" id="tFalta">—</b><span id="tLabel">ainda a comprar</span></div>
@@ -719,7 +725,7 @@ function topo(){
   const vazio = r.itens === 0;                     // nada no carrinho ainda
   const fim = r.itens && r.feitos===r.itens;       // tudo que está no carrinho já foi comprado
   $("#tTela").textContent = NOME_TELA[E.aba] || "";
-  $("#tConcurso").textContent = infoConcurso()?.badge || "";
+  $("#tConcursoNome").textContent = infoConcurso()?.badge || "";
   const big=$("#tFalta"), lbl=$("#tLabel"), sub=$("#tSub"), b=$("#tBarra");
   if(vazio){
     big.textContent = "Monte seu orçamento";
@@ -1033,6 +1039,24 @@ function desenhar(){
 }
 
 /* =========================================================================
+   Navegação entre a tela de seleção e o app (com histórico do navegador)
+   ========================================================================= */
+// Entrar no app (após escolher o concurso): cria uma entrada de histórico,
+// então o "voltar" do navegador retorna pra tela de seleção em vez de sair do site.
+function abrirApp(){ telaInicial=false; history.pushState({v:"app"}, ""); desenhar(); window.scrollTo(0,0); }
+// Voltar pra seleção ("trocar concurso"): usa o back do histórico quando dá, pra não empilhar entradas.
+function voltarSelecao(){
+  if(history.state && history.state.v==="app"){ history.back(); }
+  else { telaInicial=true; history.pushState({v:"select"}, ""); desenhar(); window.scrollTo(0,0); }
+}
+// Botão voltar/avançar do navegador
+window.addEventListener("popstate", ev => {
+  const v = ev.state && ev.state.v;
+  telaInicial = !(v==="app" && concursoValido(E.concurso));
+  desenhar(); window.scrollTo(0,0);
+});
+
+/* =========================================================================
    Interação
    ========================================================================= */
 document.addEventListener("click", ev => {
@@ -1040,11 +1064,11 @@ document.addEventListener("click", ev => {
   const opt = ev.target.closest(".conc-opt");
   if(opt){
     const id=opt.dataset.conc;
-    if(concursoValido(id)){ E.concurso=id; telaInicial=false; salvar(); track("selecao_concurso",{concurso:id}); desenhar(); window.scrollTo(0,0); }
+    if(concursoValido(id)){ E.concurso=id; salvar(); track("selecao_concurso",{concurso:id}); abrirApp(); }
     return;
   }
   // Selo do topo — voltar pra tela de seleção ("trocar concurso")
-  if(ev.target.closest("#tConcurso")){ telaInicial=true; desenhar(); window.scrollTo(0,0); return; }
+  if(ev.target.closest("#tConcurso")){ voltarSelecao(); return; }
 
   const aba = ev.target.closest(".abas button");
   if(aba){ E.aba=aba.dataset.t; salvar(); desenhar(); window.scrollTo(0,0); return; }
@@ -1112,7 +1136,11 @@ document.addEventListener("click", ev => {
 document.addEventListener("visibilitychange", () => { if(!document.hidden) carregar(); });
 
 initAnalytics();
-desenhar();     // mostra a tela de seleção na hora, sem esperar a planilha
+// Semeia o histórico: deixa uma entrada "seleção" embaixo da "app", pra o botão
+// voltar do navegador retornar ao menu inicial (em vez de sair do site).
+history.replaceState({v:"select"}, "");
+if(concursoValido(E.concurso)) history.pushState({v:"app"}, "");
+desenhar();     // mostra a tela certa na hora, sem esperar a planilha
 carregar();
 </script>
 </body>
