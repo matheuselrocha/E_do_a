@@ -311,23 +311,38 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
 .topo .hd .concurso:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.4)}
 .topo .hd .concurso:active{transform:scale(.97)}
 .topo .hd .concurso:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
-#tela[data-aba="selecao"]{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:32px 20px}
-.selkit{width:100%;max-width:440px;text-align:center}
-.selbrand{display:inline-flex;align-items:center;gap:11px;margin-bottom:28px}
-.selbrand .sig{width:38px;height:38px;flex:none;background:var(--marca);display:grid;place-items:center}
-.selbrand .sig svg{width:22px;height:22px;fill:none;stroke:var(--fogo);stroke-width:9;stroke-linecap:square;display:block}
-.selbrand .mk{font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:20px;line-height:1;letter-spacing:-.01em;text-transform:uppercase;text-align:left;color:var(--topo)}
-.selbrand .mk b{display:block;margin-top:3px;font-weight:700;font-size:10px;letter-spacing:.11em;color:var(--marca)}
-.seltit{font-family:Archivo,system-ui,sans-serif;font-size:23px;font-weight:800;letter-spacing:-.01em;margin:0 0 8px;color:var(--ink)}
-.selsub{font-size:14px;color:var(--ink2);line-height:1.5;margin:0 0 26px}
+#tela[data-aba="selecao"]{
+  min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:44px 20px;
+  background:
+    radial-gradient(135% 85% at 50% -18%, rgba(228,103,14,.24), transparent 55%),
+    radial-gradient(120% 75% at 108% 112%, rgba(107,138,70,.20), transparent 55%),
+    linear-gradient(180deg,#2F3826 0%,#22291A 58%,#161B0F 100%);
+}
+.selkit{width:100%;max-width:462px;text-align:center;color:#EDECE3}
+.selbrand{display:inline-flex;align-items:center;gap:12px;margin-bottom:24px}
+.selbrand .sig{width:44px;height:44px;flex:none;background:var(--marca);display:grid;place-items:center;box-shadow:0 6px 20px -8px rgba(0,0,0,.7)}
+.selbrand .sig svg{width:26px;height:26px;fill:none;stroke:var(--fogo);stroke-width:9;stroke-linecap:square;display:block}
+.selbrand .mk{font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:22px;line-height:1;letter-spacing:-.01em;text-transform:uppercase;text-align:left;color:#F6F5EE}
+.selbrand .mk b{display:block;margin-top:3px;font-weight:700;font-size:10.5px;letter-spacing:.12em;color:#B7BE9F}
+.seleyebrow{display:inline-block;font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--fogo);margin-bottom:14px;padding:6px 14px;border:1px solid rgba(228,103,14,.55);border-radius:999px;background:rgba(228,103,14,.08)}
+.seltit{font-family:Archivo,system-ui,sans-serif;font-size:26px;line-height:1.16;font-weight:800;letter-spacing:-.015em;margin:0 0 14px;color:#F8F7F0}
+.seltit .hl{color:var(--fogo)}
+.selsub{font-size:14.5px;color:#C8CABC;line-height:1.6;margin:0 auto 28px;max-width:404px}
+.selescolha{display:flex;align-items:center;gap:11px;justify-content:center;font-family:Archivo,system-ui,sans-serif;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9BA187;margin-bottom:14px}
+.selescolha::before,.selescolha::after{content:"";height:1px;flex:1;max-width:52px;background:rgba(255,255,255,.16)}
 .selopts{display:grid;gap:12px}
-.conc-opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--rule);border-radius:14px;padding:18px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:border-color .15s,transform .05s}
-.conc-opt:hover{border-color:var(--marca)}
-.conc-opt:active{transform:scale(.99)}
-.conc-opt:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
-.conc-opt .co-rot{font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:17px;text-transform:uppercase;letter-spacing:.01em;color:var(--ink)}
-.conc-opt .co-ano{font-family:"Barlow Semi Condensed";font-weight:700;font-size:16px;color:var(--fogo)}
-.conc-opt .co-seta{margin-left:auto;color:var(--marca);font-size:20px;font-weight:700;line-height:1}
+.conc-opt{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:#F5F4EE;border:1.5px solid transparent;border-radius:16px;padding:16px 18px;cursor:pointer;box-shadow:0 6px 16px -8px rgba(0,0,0,.55);transition:transform .12s,box-shadow .15s,border-color .15s}
+.conc-opt:hover{transform:translateY(-2px);box-shadow:0 14px 28px -10px rgba(0,0,0,.6);border-color:var(--fogo)}
+.conc-opt:active{transform:translateY(0)}
+.conc-opt:focus-visible{outline:2px solid var(--fogo);outline-offset:3px}
+.conc-opt .co-txt{min-width:0}
+.conc-opt .co-top{display:flex;align-items:baseline;gap:8px}
+.conc-opt .co-rot{font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:18px;text-transform:uppercase;letter-spacing:.01em;color:var(--topo)}
+.conc-opt .co-ano{font-family:"Barlow Semi Condensed";font-weight:700;font-size:15px;color:var(--fogo)}
+.conc-opt .co-desc{display:block;font-size:12.5px;color:var(--ink2);margin-top:3px;line-height:1.3}
+.conc-opt .co-seta{margin-left:auto;flex:none;width:36px;height:36px;border-radius:50%;background:var(--fogo);color:#fff;display:grid;place-items:center;font-size:19px;font-weight:700;line-height:1;transition:transform .15s}
+.conc-opt:hover .co-seta{transform:translateX(3px)}
+.selpe{margin:26px 0 0;font-size:12.5px;color:#8E947D;letter-spacing:.02em}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
@@ -447,9 +462,10 @@ const CFG = {
   // valores na coluna "Concurso" (ex.: CFO PMDF) — só aparece o que estiver aqui.
   // id = valor exato da coluna "Concurso"; rotulo/ano = texto do botão; badge = selo no topo.
   // msg = como o candidato se apresenta na mensagem de WhatsApp para a loja ("Sou do ...").
+  // desc = subtítulo do botão na tela inicial.
   concursos: [
-    { id:"CBMDF - 2025",    rotulo:"CBMDF",    ano:"2025", badge:"CBMDF", msg:"CFP CBMDF 2026" },
-    { id:"CFP PMDF - 2023", rotulo:"CFP PMDF", ano:"2023", badge:"PMDF",  msg:"CFP PMDF 2023" }
+    { id:"CBMDF - 2025",    rotulo:"CBMDF",    ano:"2025", badge:"CBMDF", msg:"CFP CBMDF 2026", desc:"Corpo de Bombeiros Militar do DF" },
+    { id:"CFP PMDF - 2023", rotulo:"CFP PMDF", ano:"2023", badge:"PMDF",  msg:"CFP PMDF 2023", desc:"Polícia Militar do DF" }
   ],
   // Fonte de dados: planilha "Backend - Controle de Enxoval".
   planilhaId: "1Yi-czpyFQeRk58tUx95wkevEG3lkwtcZQANR1KspV8U",
@@ -1002,9 +1018,11 @@ function telaBizus(){
    ========================================================================= */
 function telaSelecao(){
   const opts = CFG.concursos.map(c=>`
-    <button type="button" class="conc-opt" data-conc="${esc(c.id)}" aria-label="${esc(c.rotulo)} ${esc(c.ano)}">
-      <span class="co-rot">${esc(c.rotulo)}</span>
-      <span class="co-ano">${esc(c.ano)}</span>
+    <button type="button" class="conc-opt" data-conc="${esc(c.id)}" aria-label="${esc(c.rotulo)} ${esc(c.ano)} — ${esc(c.desc||"")}">
+      <span class="co-txt">
+        <span class="co-top"><span class="co-rot">${esc(c.rotulo)}</span><span class="co-ano">${esc(c.ano)}</span></span>
+        ${c.desc?`<span class="co-desc">${esc(c.desc)}</span>`:""}
+      </span>
       <span class="co-seta" aria-hidden="true">→</span>
     </button>`).join("");
   return `<div class="selkit">
@@ -1012,9 +1030,12 @@ function telaSelecao(){
       <span class="sig" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 25 L18 36 L41 11"/></svg></span>
       <span class="mk">Enxoval<b>do Aprovado</b></span>
     </div>
-    <h1 class="seltit">Escolha seu concurso</h1>
-    <p class="selsub">Selecione para ver o enxoval, comparar preços e encontrar as lojas do seu concurso.</p>
+    <span class="seleyebrow">De aprovado, para aprovado</span>
+    <h1 class="seltit">Você passou. Agora a gente te ajuda com o <span class="hl">enxoval</span>.</h1>
+    <p class="selsub">A gente já enfrentou essa mesma correria. Por isso reunimos os preços, as lojas e a lista completa dos itens obrigatórios do seu curso de formação — pra você comprar tudo com tranquilidade, economizando tempo e dinheiro nesta reta final.</p>
+    <div class="selescolha">Escolha seu concurso</div>
     <div class="selopts">${opts}</div>
+    <p class="selpe">🎖 Feito por quem já passou pelo mesmo processo.</p>
   </div>`;
 }
 
