@@ -446,9 +446,10 @@ const CFG = {
   // Concursos disponíveis na tela inicial (allowlist fixa). A planilha pode ter outros
   // valores na coluna "Concurso" (ex.: CFO PMDF) — só aparece o que estiver aqui.
   // id = valor exato da coluna "Concurso"; rotulo/ano = texto do botão; badge = selo no topo.
+  // msg = como o candidato se apresenta na mensagem de WhatsApp para a loja ("Sou do ...").
   concursos: [
-    { id:"CBMDF - 2025",    rotulo:"CBMDF",    ano:"2025", badge:"CBMDF" },
-    { id:"CFP PMDF - 2023", rotulo:"CFP PMDF", ano:"2023", badge:"PMDF"  }
+    { id:"CBMDF - 2025",    rotulo:"CBMDF",    ano:"2025", badge:"CBMDF", msg:"CFP CBMDF 2026" },
+    { id:"CFP PMDF - 2023", rotulo:"CFP PMDF", ano:"2023", badge:"PMDF",  msg:"CFP PMDF 2023" }
   ],
   // Fonte de dados: planilha "Backend - Controle de Enxoval".
   planilhaId: "1Yi-czpyFQeRk58tUx95wkevEG3lkwtcZQANR1KspV8U",
@@ -916,7 +917,8 @@ function categoriaOnline(nomeItem, catItem){
 const REF_PLATAFORMA = "Vim por meio da plataforma Enxoval do Aprovado (enxovaldoaprovado.com.br)";
 function msgWhats(g){
   const linhas = g.itens.map(i=>`• ${i.q}x ${i.nome}`).join("\n");
-  return `Olá! Sou do CFP CBMDF 2026 e gostaria de comprar no(a) ${g.loja}:\n\n${linhas}\n\nPode me passar valores, formas de pagamento e disponibilidade? Obrigado(a)!\n\n${REF_PLATAFORMA}`;
+  const conc = infoConcurso()?.msg || "CFP";
+  return `Olá! Sou do ${conc} e gostaria de comprar no(a) ${g.loja}:\n\n${linhas}\n\nPode me passar valores, formas de pagamento e disponibilidade? Obrigado(a)!\n\n${REF_PLATAFORMA}`;
 }
 function cardLojaCarrinho(g){
   const c = contatoDe(g.loja), online = ehOnline(g.loja);
