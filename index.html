@@ -352,22 +352,36 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
 .selpe .louro{width:30px;height:13px;opacity:.8}
 
 /* ---------- pop-up de captura de lead ---------- */
-.lead-back{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:20px;overflow:auto;background:rgba(15,18,10,.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-.lead{width:100%;max-width:430px;background:var(--card);border-radius:16px;padding:22px 20px;box-shadow:0 24px 60px -18px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:13px}
-.lead-tit{font-family:Archivo,system-ui,sans-serif;font-size:16px;line-height:1.32;font-weight:800;letter-spacing:-.01em;color:var(--ink);margin:2px 0 4px}
+.lead-back{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:16px;overflow:auto;background:rgba(15,18,10,.66);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.lead{width:100%;max-width:432px;background:var(--card);border-radius:18px;overflow:hidden;box-shadow:0 30px 70px -20px rgba(0,0,0,.65);display:flex;flex-direction:column}
+/* cabeçalho: banda oliva com a marca e louro dourado */
+.lead-top{text-align:center;color:#EDECE3;padding:22px 22px 20px;background:radial-gradient(130% 95% at 50% -20%, rgba(228,103,14,.28), transparent 55%), linear-gradient(180deg,#2F3826,#20271A)}
+.lead-brand{display:inline-flex;align-items:center;gap:9px;margin-bottom:12px}
+.lead-sig{width:30px;height:30px;flex:none;background:var(--marca);display:grid;place-items:center}
+.lead-sig svg{width:18px;height:18px;fill:none;stroke:var(--fogo);stroke-width:9;stroke-linecap:square;display:block}
+.lead-mk{font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:15px;line-height:1;letter-spacing:-.01em;text-transform:uppercase;text-align:left;color:#F5F4EE}
+.lead-mk b{display:block;margin-top:2px;font-weight:700;font-size:8px;letter-spacing:.12em;color:#B7BE9F}
+.lead-eyebrow{display:flex;align-items:center;justify-content:center;gap:8px;font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fogo);margin-bottom:10px}
+.lead-eyebrow .louro{width:26px;height:12px}
+.lead-tit{font-family:Archivo,system-ui,sans-serif;font-size:20px;line-height:1.2;font-weight:800;letter-spacing:-.015em;margin:0 0 7px;color:#F8F7F0}
+.lead-sub{font-size:13px;line-height:1.5;color:#C8CABC;margin:0 auto;max-width:330px}
+/* corpo: campos */
+.lead-body{padding:18px 20px 20px;display:flex;flex-direction:column;gap:12px}
 .lead-f{display:flex;flex-direction:column;gap:5px}
-.lead-f>span{font-size:12.5px;font-weight:700;color:var(--ink2)}
-.lead-f input,.lead-f select{width:100%;font:inherit;font-size:15px;color:var(--ink);background:#fafaf7;border:1px solid var(--rule);border-radius:9px;padding:11px 12px;min-height:44px;-webkit-appearance:none;appearance:none}
+.lead-f>span{font-size:12px;font-weight:700;color:var(--ink2);letter-spacing:.01em}
+.lead-f input,.lead-f select{width:100%;font:inherit;font-size:15px;color:var(--ink);background:#fafaf7;border:1px solid var(--rule);border-radius:10px;padding:11px 12px;min-height:46px;-webkit-appearance:none;appearance:none;transition:border-color .15s,box-shadow .15s}
 .lead-f select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234B5054' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 12px center;background-size:16px;padding-right:36px}
 .lead-f input:focus,.lead-f select:focus{outline:none;border-color:var(--fogo);box-shadow:0 0 0 3px rgba(228,103,14,.15)}
-.lead-check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.4;color:var(--ink2);cursor:pointer;margin:2px 0}
+.lead-check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.45;color:var(--ink2);cursor:pointer;background:#fafaf7;border:1px solid var(--rule);border-radius:10px;padding:12px;margin:1px 0}
 .lead-check input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--fogo);cursor:pointer}
-.lead-erro{margin:0;font-size:13px;font-weight:600;color:#B42318;background:#FDECEA;border:1px solid #F5C7C2;border-radius:8px;padding:9px 11px;line-height:1.4}
-.lead-btn{margin-top:4px;background:var(--fogo);color:#fff;border:none;border-radius:10px;padding:14px;font-family:Archivo,system-ui,sans-serif;font-size:15px;font-weight:700;cursor:pointer;min-height:48px;transition:background .15s}
+.lead-erro{margin:0;font-size:13px;font-weight:600;color:#B42318;background:#FDECEA;border:1px solid #F5C7C2;border-radius:9px;padding:9px 11px;line-height:1.4}
+.lead-btn{margin-top:2px;background:var(--fogo);color:#fff;border:none;border-radius:11px;padding:15px;font-family:Archivo,system-ui,sans-serif;font-size:15px;font-weight:800;letter-spacing:.01em;cursor:pointer;min-height:50px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 8px 20px -8px rgba(228,103,14,.65);transition:background .15s,transform .05s}
 .lead-btn:hover{background:var(--fogo-d)}
-.lead-btn:disabled{opacity:.7;cursor:default}
+.lead-btn:active{transform:scale(.99)}
+.lead-btn:disabled{opacity:.7;cursor:default;box-shadow:none}
 .lead-btn:focus-visible,.lead-check:focus-within{outline:2px solid var(--fogo);outline-offset:2px}
 .lead-skip{background:none;border:none;color:var(--ink3);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:6px;align-self:center}
+.lead-nota{margin:2px 0 0;text-align:center;font-size:11.5px;color:var(--ink3);line-height:1.45}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
@@ -1210,16 +1224,27 @@ function abrirFormLead(concursoId){
   back.className = "lead-back"; back.id = "leadBack";
   back.innerHTML = `
     <form class="lead" id="leadForm" novalidate>
-      <h2 class="lead-tit">Preencha seus dados para ter acesso ao enxoval facilitado de forma inteiramente gratuita</h2>
-      <label class="lead-f"><span>Nome</span><input name="nome" type="text" autocomplete="name" required></label>
-      <label class="lead-f"><span>Email</span><input name="email" type="email" inputmode="email" autocomplete="email" required></label>
-      <label class="lead-f"><span>Celular</span><input name="celular" type="text" inputmode="numeric" autocomplete="tel" placeholder="(DDD) número" required></label>
-      <label class="lead-f"><span>Estado</span><select name="estado" id="leadEstado" required></select></label>
-      <label class="lead-f"><span>Concurso</span><select name="concurso" id="leadConcurso" required></select></label>
-      <label class="lead-check"><input type="checkbox" name="aceite"><span>Você deseja receber avisos caso algum item do enxoval do seu concurso entre em promoção?</span></label>
-      <p class="lead-erro" id="leadErro" hidden></p>
-      <button type="submit" class="lead-btn" id="leadSubmit">Ver meu enxoval</button>
-      <button type="button" class="lead-skip" id="leadSkip" hidden>Continuar sem cadastro</button>
+      <div class="lead-top">
+        <div class="lead-brand">
+          <span class="lead-sig" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 25 L18 36 L41 11"/></svg></span>
+          <span class="lead-mk">Enxoval<b>do Aprovado</b></span>
+        </div>
+        <div class="lead-eyebrow">${LOURO}<span>Acesso gratuito</span><span class="louro-r">${LOURO}</span></div>
+        <h2 class="lead-tit">Falta só um passo pro seu enxoval</h2>
+        <p class="lead-sub">Preencha rapidinho e libere a lista completa, a comparação de preços e as lojas do seu concurso. De aprovado, para aprovado.</p>
+      </div>
+      <div class="lead-body">
+        <label class="lead-f"><span>Nome</span><input name="nome" type="text" autocomplete="name" required></label>
+        <label class="lead-f"><span>Email</span><input name="email" type="email" inputmode="email" autocomplete="email" required></label>
+        <label class="lead-f"><span>Celular (WhatsApp)</span><input name="celular" type="text" inputmode="numeric" autocomplete="tel" placeholder="(DDD) número" required></label>
+        <label class="lead-f"><span>Estado</span><select name="estado" id="leadEstado" required></select></label>
+        <label class="lead-f"><span>Concurso</span><select name="concurso" id="leadConcurso" required></select></label>
+        <label class="lead-check"><input type="checkbox" name="aceite"><span>Quero receber um aviso quando um item do meu enxoval entrar em promoção.</span></label>
+        <p class="lead-erro" id="leadErro" hidden></p>
+        <button type="submit" class="lead-btn" id="leadSubmit">Ver meu enxoval <span aria-hidden="true">→</span></button>
+        <button type="button" class="lead-skip" id="leadSkip" hidden>Continuar sem cadastro</button>
+        <p class="lead-nota">🔒 Seus dados ficam seguros. Você só recebe avisos se marcar a opção acima.</p>
+      </div>
     </form>`;
   document.body.appendChild(back);
 
