@@ -1091,10 +1091,14 @@ function desenhar(){
 // Entrar no app (após escolher o concurso): cria uma entrada de histórico,
 // então o "voltar" do navegador retorna pra tela de seleção em vez de sair do site.
 function abrirApp(){ telaInicial=false; history.pushState({v:"app"}, ""); desenhar(); window.scrollTo(0,0); }
-// Voltar pra seleção ("trocar concurso"): usa o back do histórico quando dá, pra não empilhar entradas.
+// Voltar pra seleção ("trocar concurso"). NÃO usar history.back(): dependia de existir uma
+// entrada "seleção" logo abaixo, e em alguns caminhos (ex.: quem chega direto do Google) o back
+// saía do site. pushState sempre mostra a seleção sem risco de sair; o back do navegador continua
+// funcionando (volta pro app de onde veio).
 function voltarSelecao(){
-  if(history.state && history.state.v==="app"){ history.back(); }
-  else { telaInicial=true; history.pushState({v:"select"}, ""); desenhar(); window.scrollTo(0,0); }
+  telaInicial=true;
+  if(!(history.state && history.state.v==="select")) history.pushState({v:"select"}, "");
+  desenhar(); window.scrollTo(0,0);
 }
 // Botão voltar/avançar do navegador
 window.addEventListener("popstate", ev => {
