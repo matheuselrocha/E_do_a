@@ -304,7 +304,18 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* ---------- tela inicial: seleção de concurso ---------- */
-body.selecao{padding-bottom:0}
+/* O gradiente vai no html+body para preencher também as áreas do navegador
+   no mobile (barra de status em cima e barra de endereço embaixo) — sem retângulos claros. */
+html:has(body.selecao){background:#161B0F}
+body.selecao{
+  padding-bottom:0;min-height:100vh;min-height:100dvh;
+  background-color:#20271A;   /* base sólida: preenche as áreas do navegador (status/rodapé) no mobile */
+  background-image:
+    radial-gradient(135% 60% at 50% 0%, rgba(228,103,14,.24), transparent 55%),
+    radial-gradient(120% 55% at 108% 100%, rgba(107,138,70,.20), transparent 55%),
+    linear-gradient(180deg,#2F3826 0%,#22291A 55%,#161B0F 100%);
+  background-repeat:no-repeat;background-size:cover;
+}
 body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!important}
 .topo .hd .concurso{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.10);cursor:pointer;transition:background .15s,border-color .15s,transform .05s}
 .topo .hd .concurso svg{width:15px;height:15px;stroke:var(--fogo);stroke-width:2.3;fill:none;flex:none}
@@ -313,10 +324,7 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
 .topo .hd .concurso:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
 #tela[data-aba="selecao"]{
   min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:44px 20px;
-  background:
-    radial-gradient(135% 85% at 50% -18%, rgba(228,103,14,.24), transparent 55%),
-    radial-gradient(120% 75% at 108% 112%, rgba(107,138,70,.20), transparent 55%),
-    linear-gradient(180deg,#2F3826 0%,#22291A 58%,#161B0F 100%);
+  background:transparent;   /* o fundo agora é do body (preenche as áreas do navegador) */
 }
 .selkit{width:100%;max-width:462px;text-align:center;color:#EDECE3}
 .selbrand{display:inline-flex;align-items:center;gap:12px;margin-bottom:24px}
@@ -350,6 +358,7 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
 .conc-opt:hover .co-seta{transform:translateX(3px)}
 .selpe{display:flex;align-items:center;justify-content:center;gap:9px;margin:26px 0 0;font-size:12.5px;color:#8E947D;letter-spacing:.02em}
 .selpe .louro{width:30px;height:13px;opacity:.8}
+.sel-copy{margin:16px 0 0;font-size:10.5px;font-weight:600;letter-spacing:.04em;color:#6E7359;text-transform:uppercase}
 
 /* ---------- pop-up de captura de lead ---------- */
 .lead-back{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:16px;overflow:auto;background:rgba(15,18,10,.66);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
@@ -1134,6 +1143,7 @@ function telaSelecao(){
     <div class="selescolha">Escolha seu concurso</div>
     <div class="selopts">${opts}</div>
     <p class="selpe">${LOURO}<span>Feito por quem já passou pelo mesmo processo</span><span class="louro-r">${LOURO}</span></p>
+    <p class="sel-copy">© 2026 ENXOVAL DO APROVADO — Todos os direitos reservados.</p>
   </div>`;
 }
 
