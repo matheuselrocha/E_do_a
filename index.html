@@ -351,6 +351,24 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
 .selpe{display:flex;align-items:center;justify-content:center;gap:9px;margin:26px 0 0;font-size:12.5px;color:#8E947D;letter-spacing:.02em}
 .selpe .louro{width:30px;height:13px;opacity:.8}
 
+/* ---------- pop-up de captura de lead ---------- */
+.lead-back{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:20px;overflow:auto;background:rgba(15,18,10,.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.lead{width:100%;max-width:430px;background:var(--card);border-radius:16px;padding:22px 20px;box-shadow:0 24px 60px -18px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:13px}
+.lead-tit{font-family:Archivo,system-ui,sans-serif;font-size:16px;line-height:1.32;font-weight:800;letter-spacing:-.01em;color:var(--ink);margin:2px 0 4px}
+.lead-f{display:flex;flex-direction:column;gap:5px}
+.lead-f>span{font-size:12.5px;font-weight:700;color:var(--ink2)}
+.lead-f input,.lead-f select{width:100%;font:inherit;font-size:15px;color:var(--ink);background:#fafaf7;border:1px solid var(--rule);border-radius:9px;padding:11px 12px;min-height:44px;-webkit-appearance:none;appearance:none}
+.lead-f select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234B5054' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 12px center;background-size:16px;padding-right:36px}
+.lead-f input:focus,.lead-f select:focus{outline:none;border-color:var(--fogo);box-shadow:0 0 0 3px rgba(228,103,14,.15)}
+.lead-check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.4;color:var(--ink2);cursor:pointer;margin:2px 0}
+.lead-check input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--fogo);cursor:pointer}
+.lead-erro{margin:0;font-size:13px;font-weight:600;color:#B42318;background:#FDECEA;border:1px solid #F5C7C2;border-radius:8px;padding:9px 11px;line-height:1.4}
+.lead-btn{margin-top:4px;background:var(--fogo);color:#fff;border:none;border-radius:10px;padding:14px;font-family:Archivo,system-ui,sans-serif;font-size:15px;font-weight:700;cursor:pointer;min-height:48px;transition:background .15s}
+.lead-btn:hover{background:var(--fogo-d)}
+.lead-btn:disabled{opacity:.7;cursor:default}
+.lead-btn:focus-visible,.lead-check:focus-within{outline:2px solid var(--fogo);outline-offset:2px}
+.lead-skip{background:none;border:none;color:var(--ink3);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:6px;align-self:center}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* ============================================================
@@ -451,6 +469,8 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
     <svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 013.5 10.9c-.6.5-1 1-1 1.6H9.5c0-.6-.4-1.1-1-1.6A6 6 0 0112 3z"/></svg>Bizus</button>
 </div></nav>
 
+<!-- Supabase JS (captura de lead). Carrega em paralelo; o formulário só usa no envio. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
 <script>
 /* =========================================================================
    SNAPSHOT — cópia embutida da planilha (funciona offline / se o gviz falhar)
@@ -506,6 +526,20 @@ const CFG = {
 };
 
 /* =========================================================================
+   Supabase — captura de lead (fundação p/ a Fase 3: backend/login/métricas)
+   ========================================================================= */
+const SUPA_URL = "https://zjvxatpdajxdtpmifkxg.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqdnhhdHBkYWp4ZHRwbWlma3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MTM5ODYsImV4cCI6MjEwNTA4OTk4Nn0.Y23MtmFlyQrk1sL9FSmem5SXPSUAQX2l__PxHNKrvnU";
+
+// Catálogo concurso→estado (aba "Concursos"). Snapshot de fallback; carregarCatalogo() atualiza ao vivo.
+const CATALOGO_SNAP = [
+  { estado:"Distrito Federal", concurso:"CBMDF - 2025" },
+  { estado:"Distrito Federal", concurso:"CFP PMDF - 2023" },
+  { estado:"Distrito Federal", concurso:"CFO PMDF - 2026" }
+];
+let CATALOGO = CATALOGO_SNAP.slice();
+
+/* =========================================================================
    Estado do usuário — sobrevive a fechar o app (com fallback em memória)
    ========================================================================= */
 const guarda = (() => {
@@ -523,11 +557,17 @@ E.cart ||= {};             // itens adicionados ao carrinho (pelo checkbox da ca
 E.compradoLoja ||= {};     // lojas marcadas como "já comprou" na aba Carrinho
 const salvar = () => guarda.gravar(CHAVE, E);
 
+// ---- Captura de lead (flag por navegador) ----
+const FLAG_LEAD = "enxoval_form_submitted";
+const leadJaEnviado = () => guarda.ler(FLAG_LEAD, false) === true;
+
 // ---- Concurso selecionado (tela inicial + filtros) ----
 const IDS_CONCURSO = new Set(CFG.concursos.map(c=>c.id));
 const concursoValido = c => IDS_CONCURSO.has(c);
 if(!concursoValido(E.concurso)) E.concurso = null;   // sem concurso válido → tela de seleção
-let telaInicial = !concursoValido(E.concurso);       // controla a exibição da tela de seleção
+// Mostra a seleção quando não há concurso válido OU quando o lead ainda não foi enviado
+// (assim o formulário sempre acontece antes da calculadora, mesmo após recarregar).
+let telaInicial = !concursoValido(E.concurso) || !leadJaEnviado();
 const infoConcurso = () => CFG.concursos.find(c=>c.id===E.concurso) || null;
 const chaveLoja = loja => (E.concurso||"") + "::" + loja;   // "já comprou" é separado por concurso
 
@@ -669,6 +709,22 @@ async function carregarContatos(){
   return out;
 }
 
+// Catálogo de concursos (aba "Concursos": Estado | Concurso) — alimenta os menus do formulário de lead.
+async function carregarCatalogo(){
+  const linhas = await lerCSV(CFG.gid.concursos);
+  const header = linhas[0] || [];
+  const iEst = acharCol(header, "Estado");
+  const iCon = acharCol(header, "Concurso");
+  if(iEst<0 || iCon<0) return [];
+  const out=[];
+  for(let r=1;r<linhas.length;r++){
+    const ln = linhas[r] || [];
+    const estado = String(ln[iEst]||"").trim(), concurso = String(ln[iCon]||"").trim();
+    if(estado && concurso) out.push({ estado, concurso });
+  }
+  return out;
+}
+
 async function carregar(){
   try{
     const [enxLin, eqLin] = await Promise.all([ lerCSV(CFG.gid.enxoval), lerCSV(CFG.gid.equip) ]);
@@ -690,6 +746,10 @@ async function carregar(){
     const cts = await carregarContatos();
     if(cts.length) DADOS.contatos = cts;        // contatos ao vivo (inclui Maps; fallback: snapshot)
   }catch(e){ console.warn("Contatos ao vivo falharam — usando cópia local:", e.message); }
+  try{
+    const cat = await carregarCatalogo();
+    if(cat.length) CATALOGO = cat;              // catálogo concurso→estado ao vivo (fallback: snapshot)
+  }catch(e){ console.warn("Catálogo de concursos ao vivo falhou — usando cópia local:", e.message); }
   desenhar();
 }
 
@@ -1103,9 +1163,114 @@ function voltarSelecao(){
 // Botão voltar/avançar do navegador
 window.addEventListener("popstate", ev => {
   const v = ev.state && ev.state.v;
-  telaInicial = !(v==="app" && concursoValido(E.concurso));
+  telaInicial = !(v==="app" && concursoValido(E.concurso) && leadJaEnviado());
   desenhar(); window.scrollTo(0,0);
 });
+
+/* =========================================================================
+   Captura de lead — pop-up após escolher o concurso (grava no Supabase)
+   ========================================================================= */
+const estadosCatalogo   = () => [...new Set(CATALOGO.map(r=>r.estado))];
+const concursosDoEstado = est => CATALOGO.filter(r=>r.estado===est).map(r=>r.concurso);
+const estadoDoConcurso  = con => (CATALOGO.find(r=>r.concurso===con)||{}).estado || (estadosCatalogo()[0]||"");
+const rotuloConc        = c => c.replace(/\s*-\s*/," ");   // "CBMDF - 2025" -> "CBMDF 2025"
+
+// Grava o lead no Supabase. Retorna {ok:true[,dup:true]} ou {ok:false,msg}.
+async function inserirLead(d){
+  const registro = { nome:d.nome, email:d.email, celular:d.celular, estado:d.estado, concurso:d.concurso, aceite_promocao:d.aceite };
+  const ehDup = (code,msg) => code==="23505" || /duplicate key|already exists|unique/i.test(msg||"");
+  try{
+    if(window.supabase && window.supabase.createClient){
+      const supa = window.__supa || (window.__supa = window.supabase.createClient(SUPA_URL, SUPA_KEY));
+      const { error } = await supa.from("leads").insert(registro);
+      if(!error) return { ok:true };
+      if(ehDup(error.code, error.message)) return { ok:true, dup:true };  // já cadastrado = sucesso silencioso
+      return { ok:false, msg:error.message || "Falha ao enviar" };
+    }
+    // fallback REST (se a lib não tiver carregado)
+    const r = await fetch(SUPA_URL + "/rest/v1/leads", {
+      method:"POST",
+      headers:{ apikey:SUPA_KEY, Authorization:"Bearer "+SUPA_KEY, "Content-Type":"application/json", Prefer:"return=minimal" },
+      body: JSON.stringify(registro)
+    });
+    if(r.ok) return { ok:true };
+    if(r.status===409) return { ok:true, dup:true };
+    let m = "HTTP "+r.status;
+    try{ const j = await r.json(); if(ehDup(j.code, j.message)) return { ok:true, dup:true }; m = j.message || m; }catch(_){}
+    return { ok:false, msg:m };
+  }catch(e){ return { ok:false, msg:e.message || "Sem conexão" }; }
+}
+
+function fecharFormLead(){ const b=$("#leadBack"); if(b) b.remove(); }
+
+// Abre o pop-up de captura, pré-preenchendo Estado/Concurso a partir do botão clicado.
+function abrirFormLead(concursoId){
+  fecharFormLead();
+  const back = document.createElement("div");
+  back.className = "lead-back"; back.id = "leadBack";
+  back.innerHTML = `
+    <form class="lead" id="leadForm" novalidate>
+      <h2 class="lead-tit">Preencha seus dados para ter acesso ao enxoval facilitado de forma inteiramente gratuita</h2>
+      <label class="lead-f"><span>Nome</span><input name="nome" type="text" autocomplete="name" required></label>
+      <label class="lead-f"><span>Email</span><input name="email" type="email" inputmode="email" autocomplete="email" required></label>
+      <label class="lead-f"><span>Celular</span><input name="celular" type="text" inputmode="numeric" autocomplete="tel" placeholder="(DDD) número" required></label>
+      <label class="lead-f"><span>Estado</span><select name="estado" id="leadEstado" required></select></label>
+      <label class="lead-f"><span>Concurso</span><select name="concurso" id="leadConcurso" required></select></label>
+      <label class="lead-check"><input type="checkbox" name="aceite"><span>Você deseja receber avisos caso algum item do enxoval do seu concurso entre em promoção?</span></label>
+      <p class="lead-erro" id="leadErro" hidden></p>
+      <button type="submit" class="lead-btn" id="leadSubmit">Ver meu enxoval</button>
+      <button type="button" class="lead-skip" id="leadSkip" hidden>Continuar sem cadastro</button>
+    </form>`;
+  document.body.appendChild(back);
+
+  const selEst = back.querySelector("#leadEstado");
+  const selCon = back.querySelector("#leadConcurso");
+  const preencherConcursos = est => { selCon.innerHTML = concursosDoEstado(est).map(c=>`<option value="${esc(c)}">${esc(rotuloConc(c))}</option>`).join(""); };
+  selEst.innerHTML = estadosCatalogo().map(e=>`<option value="${esc(e)}">${esc(e)}</option>`).join("");
+  selEst.value = estadoDoConcurso(concursoId);
+  preencherConcursos(selEst.value);
+  selCon.value = concursoId;
+  // trocar o Estado atualiza a lista de concursos daquele estado
+  selEst.addEventListener("change", ()=> preencherConcursos(selEst.value));
+
+  // celular: aceita só dígitos (mantido como texto)
+  const inpCel = back.querySelector('input[name="celular"]');
+  inpCel.addEventListener("input", ()=>{ inpCel.value = inpCel.value.replace(/\D/g,""); });
+
+  const erroEl = back.querySelector("#leadErro");
+  const btn = back.querySelector("#leadSubmit");
+  const skip = back.querySelector("#leadSkip");
+  const erro = m => { erroEl.textContent = m; erroEl.hidden = false; };
+
+  back.querySelector("#leadForm").addEventListener("submit", async ev=>{
+    ev.preventDefault();
+    const f = ev.target;
+    const nome = f.nome.value.trim();
+    const email = f.email.value.trim();
+    const celular = f.celular.value.replace(/\D/g,"");
+    const estado = f.estado.value;
+    const concurso = f.concurso.value;
+    const aceite = f.aceite.checked;
+    if(!nome || !email || !celular || !estado || !concurso){ erro("Preencha todos os campos."); return; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ erro("Digite um email válido."); return; }
+    if(celular.length < 10){ erro("Digite o celular com DDD (só números)."); return; }
+    erroEl.hidden = true; btn.disabled = true; btn.textContent = "Enviando…";
+    const res = await inserirLead({ nome, email, celular, estado, concurso, aceite });
+    if(res.ok){
+      guarda.gravar(FLAG_LEAD, true);                                  // não mostra o pop-up de novo neste navegador
+      track("lead_cadastrado", { concurso, estado, aceite_promocao:aceite, novo: !res.dup });
+      fecharFormLead(); abrirApp();
+    } else {
+      erro("Não conseguimos enviar agora. Verifique a conexão e tente de novo.");
+      skip.hidden = false;                                            // só libera pular em falha técnica
+      btn.disabled = false; btn.textContent = "Ver meu enxoval";
+    }
+  });
+  // "Continuar sem cadastro": só em falha técnica; NÃO marca a flag (tenta de novo na próxima)
+  skip.addEventListener("click", ()=>{ fecharFormLead(); abrirApp(); });
+
+  requestAnimationFrame(()=>{ const n=back.querySelector('input[name="nome"]'); if(n) n.focus(); });
+}
 
 /* =========================================================================
    Interação
@@ -1115,7 +1280,11 @@ document.addEventListener("click", ev => {
   const opt = ev.target.closest(".conc-opt");
   if(opt){
     const id=opt.dataset.conc;
-    if(concursoValido(id)){ E.concurso=id; salvar(); track("selecao_concurso",{concurso:id}); abrirApp(); }
+    if(concursoValido(id)){
+      E.concurso=id; salvar(); track("selecao_concurso",{concurso:id});
+      if(leadJaEnviado()) abrirApp();          // já cadastrado neste navegador → direto pra calculadora
+      else abrirFormLead(id);                  // senão, formulário de captura antes de liberar
+    }
     return;
   }
   // Selo do topo — voltar pra tela de seleção ("trocar concurso")
@@ -1190,7 +1359,7 @@ initAnalytics();
 // Semeia o histórico: deixa uma entrada "seleção" embaixo da "app", pra o botão
 // voltar do navegador retornar ao menu inicial (em vez de sair do site).
 history.replaceState({v:"select"}, "");
-if(concursoValido(E.concurso)) history.pushState({v:"app"}, "");
+if(concursoValido(E.concurso) && leadJaEnviado()) history.pushState({v:"app"}, "");
 desenhar();     // mostra a tela certa na hora, sem esperar a planilha
 carregar();
 </script>
