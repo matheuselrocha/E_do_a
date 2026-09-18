@@ -683,11 +683,23 @@ function moldar(enxLinhas, eqLinhas){
   return saida;
 }
 
-const gviz = gid => `https://docs.google.com/spreadsheets/d/${CFG.planilhaId}/gviz/tq?tqx=out:csv&gid=${gid}`;
+// Usamos o endpoint de EXPORTAÇÃO (export?format=csv) em vez do gviz porque ele
+// devolve a planilha inteira, IGNORANDO filtros/ordenções ativos na aba. Assim,
+// se ficar um filtro ligado enquanto se edita, o site continua lendo todas as linhas.
+// (Colunas novas já são interpretadas automaticamente pelo cabeçalho.)
+const csvUrl   = gid => `https://docs.google.com/spreadsheets/d/${CFG.planilhaId}/export?format=csv&gid=${gid}`;
+const gvizUrl  = gid => `https://docs.google.com/spreadsheets/d/${CFG.planilhaId}/gviz/tq?tqx=out:csv&gid=${gid}`;
 async function lerCSV(gid){
-  const r = await fetch(gviz(gid), {cache:"no-store"});
-  if(!r.ok) throw new Error("HTTP "+r.status+" (gid "+gid+")");
-  return csv(await r.text());
+  // tenta a exportação completa; se falhar, cai no gviz como reserva
+  try{
+    const r = await fetch(csvUrl(gid), {cache:"no-store"});
+    if(r.ok) return csv(await r.text());
+    throw new Error("HTTP "+r.status);
+  }catch(e){
+    const r2 = await fetch(gvizUrl(gid), {cache:"no-store"});
+    if(!r2.ok) throw new Error("HTTP "+r2.status+" (gid "+gid+")");
+    return csv(await r2.text());
+  }
 }
 
 // Links de compra online (aba: Categoria | Produto | Link | Imagem — tudo em texto puro).
