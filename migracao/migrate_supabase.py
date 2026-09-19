@@ -313,19 +313,20 @@ for ch, row in zip(chave_item, insert("itens_enxoval", item_rows)): item_id[ch] 
 ligados = sum(1 for r in item_rows if r["produto_online_id"])
 print(f"  itens_enxoval: {len(item_id)}  (ligados ao catálogo: {ligados})")
 
-# ---- 6) precos ----
-preco_rows = []
+# ---- 6) precos (de-dup global por (item, loja); o 1º a aparecer vence — fardamento tem prioridade) ----
+preco_map = {}
 for it in todos_itens:
     iid = item_id.get((it["concurso"], it["nome"]))
     if not iid: continue
-    por_loja = {}
     for p in it["precos"]:
         lid = loja_id.get(p["loja"])
         if not lid:
             descartes.append(("preço sem loja correspondente", (it["nome"], p["loja"]))); continue
         if p["preco"] is None and not p["link"]: continue
-        por_loja[lid] = {"item_id": iid, "loja_id": lid, "preco": p["preco"], "link_produto": p["link"]}
-    preco_rows.extend(por_loja.values())
+        key = (iid, lid)
+        if key not in preco_map:
+            preco_map[key] = {"item_id": iid, "loja_id": lid, "preco": p["preco"], "link_produto": p["link"]}
+preco_rows = list(preco_map.values())
 insert("precos", preco_rows)
 print(f"  precos: {len(preco_rows)}")
 
