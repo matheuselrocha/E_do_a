@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Enxoval do Aprovado — Migração Sheets -> Supabase (Etapa 1)
+# Enxoval do Aprovado — Migração Sheets -> Supabase (Etapa 1/2)
 #
 # Reexecutável: limpa as tabelas e repopula a partir da planilha (ao vivo).
 # NÃO altera o site. Usa a service_role key (ignora RLS), lida de variável de
 # ambiente — NUNCA hardcode a chave aqui.
 #
-# Requer: 01_schema.sql e 02_online.sql já rodados no SQL Editor.
+# Requer: 01_schema.sql, 02_online.sql e 03_rls.sql já rodados no SQL Editor.
 #
-# Novidades:
-#  - Liga itens_enxoval.produto_online_id ao catálogo POR NOME (com relatório
-#    de divergências: item vendido online cujo nome não casa com o catálogo).
-#  - Suporta (opcional) a coluna "Obrigatório em" na aba Compras Online:
-#    um produto do catálogo marcado com um concurso vira item obrigatório desse
-#    concurso automaticamente (caminho do "cadastro único" da Etapa 2). Se a
-#    coluna não existir, nada muda.
+# Formatos suportados na aba de Acessórios (compatível com os dois):
+#  - LARGO (antigo): uma coluna por loja com o preço; Categoria/Link da Foto na aba.
+#  - ENXUTO (novo):  colunas Produto | Qtd Sugerida | Valor no Site. A categoria,
+#    a foto, a LOJA (Plataforma) e o link vêm da aba "Compras Online" (cruzando
+#    pelo NOME do produto). Itens sem correspondência no catálogo são reportados.
 #
 # Uso:
 #   SUPABASE_SERVICE_ROLE='eyJ...'  python3 migrate_supabase.py
-#   (opcional) SUPABASE_URL='https://<proj>.supabase.co'
 # ============================================================================
 import os, sys, csv, io, re, json, subprocess, tempfile, urllib.parse
 from collections import defaultdict, Counter
@@ -40,10 +37,9 @@ DOM2LOJA = [("mercadolivre", "Mercado Livre"), ("magazineluiza", "Magazine Luiza
             ("magalu", "Magazine Luiza"), ("shopee", "Shopee"),
             ("centauro", "Centauro"), ("amazon", "Amazon")]
 
-def norm(s):  # normaliza nome p/ casar item <-> produto (sem caixa, espaços colapsados)
-    return re.sub(r"\s+", " ", str(s or "").strip()).casefold()
+def norm(s): return re.sub(r"\s+", " ", str(s or "").strip()).casefold()
 
-# ---------------------------------------------------------------- util Supabase (via curl)
+# ---------------------------------------------------------------- Supabase (via curl)
 def _req(method, path, body=None, prefer=None):
     url = SUPA_URL + path
     args = ["curl", "-sS", "--fail-with-body", "-X", method, url,
@@ -65,19 +61,16 @@ def _req(method, path, body=None, prefer=None):
 def insert(table, rows):
     out = []
     for i in range(0, len(rows), 500):
-        data = _req("POST", f"/rest/v1/{table}", rows[i:i+500], "return=representation")
-        out.extend(data or [])
+        out.extend(_req("POST", f"/rest/v1/{table}", rows[i:i+500], "return=representation") or [])
     return out
-
 def delete_all(table): _req("DELETE", f"/rest/v1/{table}?id=not.is.null", None, "return=minimal")
 def count(table):      return len(_req("GET", f"/rest/v1/{table}?select=id") or [])
 
-# ---------------------------------------------------------------- util planilha
+# ---------------------------------------------------------------- planilha
 def baixar_csv(gid):
     url = f"https://docs.google.com/spreadsheets/d/{PLANILHA}/export?format=csv&gid={gid}"
     p = subprocess.run(["curl", "-sSL", "--fail-with-body", url], capture_output=True, text=True)
-    if p.returncode != 0:
-        sys.exit(f"ERRO ao baixar aba gid={gid}: {p.stderr[:200]}")
+    if p.returncode != 0: sys.exit(f"ERRO ao baixar aba gid={gid}: {p.stderr[:200]}")
     return list(csv.reader(io.StringIO(p.stdout)))
 
 def achar(header, *nomes):
@@ -101,35 +94,46 @@ def loja_do_link(u):
         if key in host: return nome
     return None
 
-# ---------------------------------------------------------------- ler aba de preços
-def ler_itens_tab(rows, item_headers):
+# ---------------------------------------------------------------- ler aba de itens/preços
+def ler_itens_tab(rows, item_headers, cat_por_nome):
+    """Suporta formato LARGO (coluna por loja) e ENXUTO (Valor no Site + join no catálogo)."""
     h = rows[0]
     iConc = achar(h, "Concurso"); iCat = achar(h, "Categoria")
     iItem = achar(h, *item_headers); iQtd = achar(h, "Qtd Sugerida", "Qtd")
     iFoto = achar(h, "Link da Foto", "Foto")
-    loja_ini = max(iCat, iItem, iQtd, iFoto) + 1
+    iValor = achar(h, "Valor no Site", "Valor")           # preço único (novo formato)
+    loja_ini = max(iCat, iItem, iQtd, iFoto, iValor) + 1
     lojas_cols = [c.strip() for c in h[loja_ini:] if c.strip()]
-    itens, brancos = [], 0
+    itens, brancos, sem_catalogo = [], 0, []
     for r in rows[1:]:
         if len(r) <= iItem: continue
         conc = r[iConc].strip() if 0 <= iConc < len(r) else ""
         nome = r[iItem].strip()
         if conc not in VALID: continue
         if not nome: brancos += 1; continue
+        info = cat_por_nome.get(norm(nome))               # dados do catálogo (se existir)
+        categoria = (r[iCat].strip() if 0 <= iCat < len(r) and r[iCat].strip() else None) \
+                    or (info["categoria"] if info else None)
+        foto = None
+        if 0 <= iFoto < len(r) and re.match(r"https?://", r[iFoto].strip()): foto = r[iFoto].strip()
+        elif info and info["imagem"] and re.match(r"https?://", str(info["imagem"])): foto = info["imagem"]
         precos = []
-        for k, col in enumerate(lojas_cols):
+        if 0 <= iValor < len(r):                          # ENXUTO: preço único -> loja do catálogo
+            v = num(r[iValor])
+            if v is not None:
+                if info and info["plataforma"]:
+                    precos.append({"loja": info["plataforma"], "preco": v, "link": info["link"]})
+                else:
+                    sem_catalogo.append((conc, nome))     # tem valor mas não achou no catálogo
+        for k, col in enumerate(lojas_cols):              # LARGO: uma coluna por loja
             idx = loja_ini + k
             if idx < len(r):
                 v = num(r[idx])
-                if v is not None:
-                    precos.append({"loja": canon(col), "preco": v, "link": None})
-        itens.append({"concurso": conc,
-                      "categoria": (r[iCat].strip() if 0 <= iCat < len(r) else "") or None,
-                      "nome": nome,
+                if v is not None: precos.append({"loja": canon(col), "preco": v, "link": None})
+        itens.append({"concurso": conc, "categoria": categoria, "nome": nome,
                       "qtd": (int(num(r[iQtd])) if 0 <= iQtd < len(r) and num(r[iQtd]) else None),
-                      "foto": (r[iFoto].strip() if 0 <= iFoto < len(r) and re.match(r"https?://", r[iFoto].strip()) else None),
-                      "precos": precos, "origem": "planilha"})
-    return lojas_cols, itens, brancos
+                      "foto": foto, "precos": precos, "origem": "planilha"})
+    return itens, brancos, sem_catalogo
 
 # ============================================================================ RUN
 print("Baixando abas da planilha…")
@@ -138,14 +142,37 @@ equip_rows = baixar_csv(GID["equip"])
 ct_rows    = baixar_csv(GID["contatos"])
 onl_rows   = baixar_csv(GID["online"])
 
-enx_lojas,   enx_itens,   enx_brancos   = ler_itens_tab(enx_rows,   ["Item Padronizado", "Item"])
-equip_lojas, equip_itens, equip_brancos = ler_itens_tab(equip_rows, ["Acessórios", "Acessorios", "Item"])
+# ---- catálogo online (indexado por nome) — usado no cruzamento das abas de itens ----
+online_h = onl_rows[0]
+iOCat = achar(online_h, "Categoria"); iOProd = achar(online_h, "Produto")
+iOLink = achar(online_h, "Link do Produto", "Link"); iOImg = achar(online_h, "Link da Imagem", "Imagem")
+iOPlat = achar(online_h, "Plataforma", "Loja", "Site")
+iOObrig = achar(online_h, "Obrigatório em", "Obrigatorio em", "Obrigatório", "Obrigatorio")
+iOPreco = achar(online_h, "Preço", "Preco"); iOQtd = achar(online_h, "Qtd Sugerida", "Qtd")
+def plataforma_de(r):
+    if 0 <= iOPlat < len(r) and r[iOPlat].strip(): return r[iOPlat].strip()
+    return loja_do_link(r[iOLink]) if 0 <= iOLink < len(r) else None
+
+cat_por_nome = {}
+for r in onl_rows[1:]:
+    if len(r) <= iOProd: continue
+    nome = r[iOProd].strip()
+    if not nome: continue
+    cat_por_nome.setdefault(norm(nome), {
+        "categoria": (r[iOCat].strip() if 0 <= iOCat < len(r) else "") or None,
+        "imagem": (r[iOImg].strip() if 0 <= iOImg < len(r) else None),
+        "plataforma": plataforma_de(r),
+        "link": (r[iOLink].strip() if 0 <= iOLink < len(r) else None)})
+
+enx_itens,   enx_brancos,   enx_sc   = ler_itens_tab(enx_rows,   ["Item Padronizado", "Item"], cat_por_nome)
+equip_itens, equip_brancos, equip_sc = ler_itens_tab(equip_rows, ["Produto", "Acessórios", "Acessorios", "Item"], cat_por_nome)
 
 descartes = []
 if enx_brancos:   descartes.append(("linhas em branco na aba Enxoval (sem nome)", enx_brancos))
 if equip_brancos: descartes.append(("linhas em branco na aba Acessórios (sem nome)", equip_brancos))
+sem_catalogo = enx_sc + equip_sc
 
-# ---- limpar (ordem inversa das FKs) ----
+# ---- limpar ----
 print("Limpando tabelas…")
 for t in ["precos", "itens_enxoval", "produtos_online", "loja_concurso", "lojas", "concursos"]:
     delete_all(t)
@@ -153,11 +180,9 @@ for t in ["precos", "itens_enxoval", "produtos_online", "loja_concurso", "lojas"
 # ---- 1) concursos ----
 estado_de = {}
 for r in enx_rows[1:] + equip_rows[1:]:
-    if len(r) > 1 and r[1].strip() in VALID:
-        estado_de[r[1].strip()] = (r[0].strip() or "Distrito Federal")
-conc_ins = insert("concursos", [{"nome": c, "estado": estado_de.get(c, "Distrito Federal"), "ativo": True}
-                                for c in sorted(VALID)])
-conc_id = {c["nome"]: c["id"] for c in conc_ins}
+    if len(r) > 1 and r[1].strip() in VALID: estado_de[r[1].strip()] = (r[0].strip() or "Distrito Federal")
+conc_id = {c["nome"]: c["id"] for c in insert("concursos",
+          [{"nome": c, "estado": estado_de.get(c, "Distrito Federal"), "ativo": True} for c in sorted(VALID)])}
 print(f"  concursos: {len(conc_id)} -> {list(conc_id)}")
 
 # ---- 2) lojas ----
@@ -178,57 +203,47 @@ for r in ct_rows[1:]:
     concs = [r[ic].strip() for ic in (iC1, iC2) if 0 <= ic < len(r) and r[ic].strip() in VALID]
     contato_por_loja[nome] = {"telefone": tel, "instagram": ig, "link_maps": maps, "concursos": concs}
 
-online_h = onl_rows[0]
-iOLink = achar(online_h, "Link do Produto", "Link")
-iOPlat = achar(online_h, "Plataforma", "Loja", "Site")   # coluna explícita de marketplace (preferida)
-def plataforma_de(r):
-    if 0 <= iOPlat < len(r) and r[iOPlat].strip():
-        return r[iOPlat].strip()                          # usa a "Plataforma" quando preenchida
-    return loja_do_link(r[iOLink]) if 0 <= iOLink < len(r) else None  # senão, adivinha pelo domínio
-market_online = set()
-for r in onl_rows[1:]:
-    ln = plataforma_de(r)
-    if ln: market_online.add(ln)
+# marketplaces do catálogo (Plataforma) + colunas de preço das abas de itens
+market_online = {v["plataforma"] for v in cat_por_nome.values() if v["plataforma"]}
+col_lojas = set()
+for tab in (enx_rows, equip_rows):
+    h = tab[0]
+    mm = max(achar(h,"Categoria"), achar(h,"Item Padronizado","Produto","Acessórios","Item"),
+             achar(h,"Qtd Sugerida","Qtd"), achar(h,"Link da Foto"), achar(h,"Valor no Site","Valor"))
+    for c in h[mm+1:]:
+        if c.strip(): col_lojas.add(c.strip())
 
 col_para_canon, todas_lojas, lojas_auto = {}, set(contato_por_loja.keys()), []
-for col in set(enx_lojas + equip_lojas):
+for col in col_lojas:
     c = canon(col); col_para_canon[col.strip()] = c
     if c not in todas_lojas:
-        todas_lojas.add(c)
-        if c not in contato_por_loja: lojas_auto.append(c)
+        todas_lojas.add(c); (lojas_auto.append(c) if c not in contato_por_loja else None)
 for m in market_online:
     if m not in todas_lojas:
-        todas_lojas.add(m)
-        if m not in contato_por_loja: lojas_auto.append(m)
+        todas_lojas.add(m); (lojas_auto.append(m) if m not in contato_por_loja else None)
 
-loja_rows = [{"nome": n, "tipo": tipo_de(n), "telefone": contato_por_loja.get(n, {}).get("telefone"),
-              "instagram": contato_por_loja.get(n, {}).get("instagram"),
-              "link_maps": contato_por_loja.get(n, {}).get("link_maps"), "ativo": True}
-             for n in sorted(todas_lojas)]
-loja_id = {l["nome"]: l["id"] for l in insert("lojas", loja_rows)}
+loja_id = {l["nome"]: l["id"] for l in insert("lojas",
+          [{"nome": n, "tipo": tipo_de(n), "telefone": contato_por_loja.get(n, {}).get("telefone"),
+            "instagram": contato_por_loja.get(n, {}).get("instagram"),
+            "link_maps": contato_por_loja.get(n, {}).get("link_maps"), "ativo": True}
+           for n in sorted(todas_lojas)])}
 lojas_online = sorted([n for n in todas_lojas if tipo_de(n) == "online"])
 print(f"  lojas: {len(loja_id)}  (online: {lojas_online})")
 
-# ---- 3) produtos_online (catálogo global) ----
-iOCat = achar(online_h, "Categoria"); iOProd = achar(online_h, "Produto")
-iOImg = achar(online_h, "Link da Imagem", "Imagem")
-iOObrig = achar(online_h, "Obrigatório em", "Obrigatorio em", "Obrigatório", "Obrigatorio")  # opcional
-iOPreco = achar(online_h, "Preço", "Preco")            # opcional (p/ itens vindos do catálogo)
-iOQtd   = achar(online_h, "Qtd Sugerida", "Qtd")       # opcional
-prod_rows, prod_meta = [], []   # prod_meta paralelo: dados p/ "Obrigatório em"
+# ---- 3) produtos_online ----
+prod_rows, prod_meta = [], []
 for r in onl_rows[1:]:
     if len(r) <= iOProd: continue
     nome = r[iOProd].strip()
     if not nome: continue
     link = r[iOLink].strip() if 0 <= iOLink < len(r) else ""
-    ln = plataforma_de(r)                                # "Plataforma" (ou domínio como reserva)
+    ln = plataforma_de(r)
     prod_rows.append({"categoria": (r[iOCat].strip() if 0 <= iOCat < len(r) else "") or None,
                       "nome": nome, "link_produto": link or None,
                       "link_imagem": (r[iOImg].strip() if 0 <= iOImg < len(r) and r[iOImg].strip() else None),
                       "loja_id": loja_id.get(ln) if ln else None, "ativo": True})
-    obrig = []
-    if iOObrig >= 0 and iOObrig < len(r):
-        obrig = [c.strip() for c in re.split(r"[;,/\n]+", r[iOObrig]) if c.strip() in VALID]
+    obrig = [c.strip() for c in re.split(r"[;,/\n]+", r[iOObrig])] if 0 <= iOObrig < len(r) else []
+    obrig = [c for c in obrig if c in VALID]
     prod_meta.append({"nome": nome, "categoria": (r[iOCat].strip() if 0 <= iOCat < len(r) else "") or None,
                       "link": link or None, "imagem": (r[iOImg].strip() if 0 <= iOImg < len(r) else None),
                       "loja": ln, "obrig": obrig,
@@ -237,33 +252,26 @@ for r in onl_rows[1:]:
 prod_ins = insert("produtos_online", prod_rows)
 print(f"  produtos_online: {len(prod_ins)}")
 
-# mapa nome->produto_id (p/ ligar) + detecta nomes duplicados no catálogo
-prod_by_nome = {}
-dup_prod = []
-for p, meta in zip(prod_ins, prod_meta):
+prod_by_nome, dup_prod = {}, []
+for p in prod_ins:
     k = norm(p["nome"])
-    if k in prod_by_nome: dup_prod.append(p["nome"])
-    else: prod_by_nome[k] = p["id"]
-if dup_prod:
-    descartes.append(("nomes repetidos no catálogo online (liga só o 1º)", dup_prod[:10]))
+    (dup_prod.append(p["nome"]) if k in prod_by_nome else prod_by_nome.setdefault(k, p["id"]))
+if dup_prod: descartes.append(("nomes repetidos no catálogo online (liga só o 1º)", dup_prod[:10]))
 
-# ---- itens vindos do catálogo via "Obrigatório em" (cadastro único) ----
+# itens vindos do catálogo via "Obrigatório em" (cadastro único)
 tagged_itens = []
 for p, meta in zip(prod_ins, prod_meta):
     for c in meta["obrig"]:
-        precos = []
-        if meta["loja"] and (meta["preco"] is not None or meta["link"]):
-            precos = [{"loja": meta["loja"], "preco": meta["preco"], "link": meta["link"]}]
+        precos = [{"loja": meta["loja"], "preco": meta["preco"], "link": meta["link"]}] \
+                 if meta["loja"] and (meta["preco"] is not None or meta["link"]) else []
         tagged_itens.append({"concurso": c, "categoria": meta["categoria"], "nome": meta["nome"],
-                             "qtd": meta["qtd"] if meta["qtd"] else 1,
+                             "qtd": meta["qtd"] or 1,
                              "foto": meta["imagem"] if (meta["imagem"] and re.match(r"https?://", meta["imagem"])) else None,
                              "precos": precos, "origem": "catalogo", "produto_id": p["id"]})
-if tagged_itens:
-    print(f"  (itens marcados via 'Obrigatório em': {len(tagged_itens)})")
-
+if tagged_itens: print(f"  (itens marcados via 'Obrigatório em': {len(tagged_itens)})")
 todos_itens = enx_itens + equip_itens + tagged_itens
 
-# ---- 4) loja_concurso: físicas (via contatos) + TODA loja online em TODOS os concursos ----
+# ---- 4) loja_concurso: físicas (contatos) + toda loja online em todos os concursos ----
 lc, seen = [], set()
 def add_lc(loja, conc):
     if loja in loja_id and conc in conc_id:
@@ -276,17 +284,13 @@ for nome in lojas_online:
 insert("loja_concurso", lc)
 print(f"  loja_concurso: {len(lc)}")
 
-# ---- 5) itens_enxoval (com produto_online_id ligado por nome ou por construção) ----
-item_rows, chave_item, vistos = [], [], set()
-online_sem_match = []   # relatório: item vendido online sem produto no catálogo
+# ---- 5) itens_enxoval (produto_online_id por construção ou por nome) ----
+item_rows, chave_item, vistos, online_sem_match = [], [], set(), []
 for it in todos_itens:
     ch = (it["concurso"], it["nome"])
     if ch in vistos:
-        if it["origem"] == "catalogo":
-            descartes.append(("produto 'Obrigatório em' já existia na planilha (mantida a linha da planilha)", ch))
-        else:
-            descartes.append(("item duplicado (concurso+nome)", ch))
-        continue
+        descartes.append(("item duplicado (concurso+nome)" if it["origem"] != "catalogo"
+                          else "produto 'Obrigatório em' já existia na planilha", ch)); continue
     vistos.add(ch)
     pid = it.get("produto_id") or prod_by_nome.get(norm(it["nome"]))
     if not pid and any(tipo_de(p["loja"]) == "online" for p in it["precos"]):
@@ -296,17 +300,16 @@ for it in todos_itens:
                       "cargo": None, "link_foto": it["foto"], "produto_online_id": pid})
     chave_item.append(ch)
 item_id = {}
-for ch, row in zip(chave_item, insert("itens_enxoval", item_rows)):
-    item_id[ch] = row["id"]
+for ch, row in zip(chave_item, insert("itens_enxoval", item_rows)): item_id[ch] = row["id"]
 ligados = sum(1 for r in item_rows if r["produto_online_id"])
-print(f"  itens_enxoval: {len(item_id)}  (ligados ao catálogo online: {ligados})")
+print(f"  itens_enxoval: {len(item_id)}  (ligados ao catálogo: {ligados})")
 
 # ---- 6) precos ----
 preco_rows = []
 for it in todos_itens:
     iid = item_id.get((it["concurso"], it["nome"]))
     if not iid: continue
-    por_loja = {}   # de-dup por loja dentro do item
+    por_loja = {}
     for p in it["precos"]:
         lid = loja_id.get(p["loja"])
         if not lid:
@@ -321,15 +324,16 @@ print(f"  precos: {len(preco_rows)}")
 print("\n================ CONFERÊNCIA ================")
 for t in ["concursos", "lojas", "loja_concurso", "produtos_online", "itens_enxoval", "precos"]:
     print(f"  {t:16s}: {count(t)} linhas")
-por_conc = Counter(it["concurso"] for it in todos_itens if (it["concurso"], it["nome"]) in item_id)
-print("\n  itens por concurso:", dict(por_conc))
-print(f"  itens ligados ao catálogo online (produto_online_id): {ligados}")
+print("\n  itens por concurso:", dict(Counter(it["concurso"] for it in todos_itens if (it["concurso"], it["nome"]) in item_id)))
+print(f"  itens ligados ao catálogo (produto_online_id): {ligados}")
 
-print("\n  DIVERGÊNCIAS DE NOME (item vendido online sem produto no catálogo — confira a grafia):")
-if online_sem_match:
-    for ch in online_sem_match[:30]: print("    -", ch)
-else:
-    print("    nenhuma 🎉")
+print(f"\n  ITENS COM 'Valor no Site' SEM CORRESPONDÊNCIA NO CATÁLOGO ({len(sem_catalogo)}):")
+for ch in sem_catalogo[:40]: print("    -", ch, " -> adicione este produto na aba Compras Online (com Plataforma)")
+if not sem_catalogo: print("    nenhum 🎉")
+
+print(f"\n  DIVERGÊNCIAS DE NOME (item vendido online, sem produto no catálogo):")
+for ch in online_sem_match[:30]: print("    -", ch)
+if not online_sem_match: print("    nenhuma 🎉")
 
 print(f"\n  DESCARTES ({len(descartes)}):")
 for motivo, det in descartes[:40]: print("    -", motivo, "->", det)
