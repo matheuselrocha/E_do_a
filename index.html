@@ -544,7 +544,12 @@ const CFG = {
     equip:   { titulo: "Equipamentos / Acessórios" }
   },
   // Itens femininos (marcados com g:"F").
-  femininos: ["Saia Passeio", "Saia Túnica"]
+  femininos: ["Saia Passeio", "Saia Túnica"],
+  // Fonte de dados da calculadora: "sheets" (planilha) ou "supabase".
+  // Pode ser forçada na URL com ?fonte=sheets (para testar). Fallback automático p/ Sheets se o Supabase falhar.
+  fonte: "supabase",
+  // Categorias que caem no bloco "equip" ao ler do Supabase (o resto vira "enxoval", exceto Coturno).
+  equipCats: ["Equipamentos / Acessórios"]
 };
 
 /* =========================================================================
@@ -594,6 +599,8 @@ const infoConcurso = () => CFG.concursos.find(c=>c.id===E.concurso) || null;
 const chaveLoja = loja => (E.concurso||"") + "::" + loja;   // "já comprou" é separado por concurso
 
 let DADOS = null, AO_VIVO = false;
+// Fonte ativa (URL ?fonte= sobrepõe o CFG). "supabase" tem fallback automático p/ "sheets".
+const FONTE = (new URLSearchParams(location.search).get("fonte") || CFG.fonte || "sheets").toLowerCase();
 
 /* =========================================================================
    Métricas — PostHog (só liga se CFG.analytics.posthogKey estiver preenchida)
@@ -702,13 +709,20 @@ async function lerCSV(gid){
   }
 }
 
-// Links de compra online (aba: Categoria | Produto | Link | Imagem — tudo em texto puro).
+// Links de compra online (aba Compras Online). Guiado pelo CABEÇALHO (aceita colunas
+// novas como "Plataforma" sem quebrar): Categoria | Produto | [Plataforma] | Link do Produto | Link da Imagem.
 async function carregarOnline(){
   const linhas = await lerCSV(CFG.gid.online);
+  const header = linhas[0] || [];
+  const iCat = acharCol(header, "Categoria");
+  const iProd = acharCol(header, "Produto", "Nome");
+  const iLink = acharCol(header, "Link do Produto", "Link");
+  const iImg = acharCol(header, "Link da Imagem", "Imagem");
   const mapa = new Map();                       // categoria -> {nome, op:[...]}, preservando a ordem da planilha
   for(let r=1;r<linhas.length;r++){
     const ln = linhas[r] || [];
-    const cat=String(ln[0]||"").trim(), t=String(ln[1]||"").trim(), u=String(ln[2]||"").trim(), img=String(ln[3]||"").trim();
+    const cat=String(iCat>=0?ln[iCat]:"").trim(), t=String(iProd>=0?ln[iProd]:"").trim();
+    const u=String(iLink>=0?ln[iLink]:"").trim(), img=String(iImg>=0?ln[iImg]:"").trim();
     if(!cat || !/^https?:\/\//i.test(u)) continue;
     if(!mapa.has(cat)) mapa.set(cat, { nome:cat, op:[] });
     mapa.get(cat).op.push({ t: t||u, u, img: (fotoURL(img) || IMG_ONLINE[u] || "") });
@@ -759,7 +773,81 @@ async function carregarCatalogo(){
   return out;
 }
 
+/* =========================================================================
+   Leitura via Supabase (Etapa 2) — monta o mesmo DADOS que vem do Sheets.
+   ========================================================================= */
+async function sbGet(q){
+  const r = await fetch(SUPA_URL + "/rest/v1/" + q, {cache:"no-store",
+    headers:{ apikey:SUPA_KEY, Authorization:"Bearer "+SUPA_KEY }});
+  if(!r.ok) throw new Error("Supabase HTTP "+r.status+" ("+q+")");
+  return r.json();
+}
+const instaHandle = u => { const m=String(u||"").match(/instagram\.com\/([^/?#]+)/i); return m ? "@"+m[1] : ""; };
+
+async function carregarSupabase(){
+  const [itens, prods, lc] = await Promise.all([
+    sbGet("itens_enxoval?select=nome_padronizado,categoria,qtd_sugerida,link_foto,concursos!inner(nome),precos(preco,lojas(nome))"),
+    sbGet("produtos_online?select=categoria,nome,link_produto,link_imagem&order=categoria"),
+    sbGet("loja_concurso?select=concursos(nome),lojas!inner(nome,tipo,telefone,instagram,link_maps)&lojas.tipo=eq.fisica"),
+  ]);
+  const fem = new Set(CFG.femininos);
+  const blocos = { enxoval:{lojas:[],itens:[]}, coturno:{lojas:[],itens:[]}, equip:{lojas:[],itens:[]} };
+  const lset = { enxoval:new Set(), coturno:new Set(), equip:new Set() };
+  for(const it of itens){
+    const conc = it.concursos && it.concursos.nome;
+    if(!IDS_CONCURSO.has(conc)) continue;
+    const cat = it.categoria || "";
+    const bloco = (cat===CFG.coturnoCat) ? "coturno" : (CFG.equipCats.includes(cat) ? "equip" : "enxoval");
+    const p = {};
+    for(const pr of (it.precos||[])){
+      if(pr.lojas && pr.preco!=null){ p[pr.lojas.nome] = Math.round(Number(pr.preco)); lset[bloco].add(pr.lojas.nome); }
+    }
+    if(!Object.keys(p).length) continue;   // sem preço válido → fora da calculadora (igual ao Sheets)
+    blocos[bloco].itens.push({ cat, nome: it.nome_padronizado, qtd: it.qtd_sugerida==null?0:it.qtd_sugerida,
+      p, g: fem.has(it.nome_padronizado)?"F":"A", foto: it.link_foto||"", concurso: conc });
+  }
+  for(const b of Object.keys(blocos)) blocos[b].lojas = [...lset[b]];
+  const n = Object.values(blocos).reduce((a,b)=>a+b.itens.length,0);
+  if(n < 20) throw new Error("Supabase: poucos itens ("+n+")");
+
+  // catálogo online -> links agrupados por categoria (mesmo formato do Sheets)
+  const mapa = new Map();
+  for(const pr of prods){
+    const cat=(pr.categoria||"").trim(), u=(pr.link_produto||"").trim();
+    if(!cat || !/^https?:\/\//i.test(u)) continue;
+    if(!mapa.has(cat)) mapa.set(cat, {nome:cat, op:[]});
+    mapa.get(cat).op.push({ t: pr.nome||u, u, img: (fotoURL(pr.link_imagem) || IMG_ONLINE[u] || "") });
+  }
+  const links = [...mapa.values()];
+
+  // contatos (lojas físicas) com a lista de concursos que atendem
+  const byloja = new Map();
+  for(const row of lc){
+    const l = row.lojas; if(!l) continue;
+    if(!byloja.has(l.nome)) byloja.set(l.nome, {nome:l.nome, tel:l.telefone||"", ig:l.instagram||"", maps:l.link_maps||"", concs:[]});
+    const c = row.concursos && row.concursos.nome; if(c) byloja.get(l.nome).concs.push(c);
+  }
+  const contatos = [...byloja.values()].map(x => [x.nome, x.tel, instaHandle(x.ig),
+    (/^https?:\/\//i.test(x.ig)?x.ig:""), (/^https?:\/\//i.test(x.maps)?x.maps:""), x.concs]);
+
+  return { blocos,
+           links: links.length ? links : SNAPSHOT.links,
+           contatos: contatos.length ? contatos : SNAPSHOT.contatos,
+           pagamento: SNAPSHOT.pagamento, cupom: SNAPSHOT.cupom, bizus: SNAPSHOT.bizus };
+}
+
 async function carregar(){
+  if(FONTE === "supabase"){
+    try{
+      DADOS = await carregarSupabase();
+      AO_VIVO = true;
+      try{ const cs = await carregarCatalogo(); if(cs.length) CATALOGO = cs; }catch(_){}
+      desenhar();
+      return;
+    }catch(e){
+      console.warn("Supabase falhou — usando Sheets:", e.message);   // fallback automático
+    }
+  }
   try{
     const [enxLin, eqLin] = await Promise.all([ lerCSV(CFG.gid.enxoval), lerCSV(CFG.gid.equip) ]);
     const blocos = moldar(enxLin, eqLin);

@@ -180,11 +180,15 @@ for r in ct_rows[1:]:
 
 online_h = onl_rows[0]
 iOLink = achar(online_h, "Link do Produto", "Link")
+iOPlat = achar(online_h, "Plataforma", "Loja", "Site")   # coluna explícita de marketplace (preferida)
+def plataforma_de(r):
+    if 0 <= iOPlat < len(r) and r[iOPlat].strip():
+        return r[iOPlat].strip()                          # usa a "Plataforma" quando preenchida
+    return loja_do_link(r[iOLink]) if 0 <= iOLink < len(r) else None  # senão, adivinha pelo domínio
 market_online = set()
 for r in onl_rows[1:]:
-    if 0 <= iOLink < len(r):
-        ln = loja_do_link(r[iOLink])
-        if ln: market_online.add(ln)
+    ln = plataforma_de(r)
+    if ln: market_online.add(ln)
 
 col_para_canon, todas_lojas, lojas_auto = {}, set(contato_por_loja.keys()), []
 for col in set(enx_lojas + equip_lojas):
@@ -217,7 +221,7 @@ for r in onl_rows[1:]:
     nome = r[iOProd].strip()
     if not nome: continue
     link = r[iOLink].strip() if 0 <= iOLink < len(r) else ""
-    ln = loja_do_link(link)
+    ln = plataforma_de(r)                                # "Plataforma" (ou domínio como reserva)
     prod_rows.append({"categoria": (r[iOCat].strip() if 0 <= iOCat < len(r) else "") or None,
                       "nome": nome, "link_produto": link or None,
                       "link_imagem": (r[iOImg].strip() if 0 <= iOImg < len(r) and r[iOImg].strip() else None),
