@@ -75,9 +75,10 @@ def baixar_csv(gid):
     return list(csv.reader(io.StringIO(p.stdout)))
 
 def achar(header, *nomes):
-    alvo = [n.strip().lower() for n in nomes]
+    k = lambda s: str(s or "").strip().rstrip(":").strip().lower()   # tolera ":" no fim do cabeçalho
+    alvo = [k(n) for n in nomes]
     for i, c in enumerate(header):
-        if str(c).strip().lower() in alvo: return i
+        if k(c) in alvo: return i
     return -1
 
 def num(s):
