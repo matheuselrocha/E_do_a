@@ -1,1 +1,5 @@
 .DS_Store
+
+# Segredos locais — NUNCA versionar (service_role key etc.)
+.env
+migracao/.env
