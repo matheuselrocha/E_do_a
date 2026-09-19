@@ -38,6 +38,7 @@ DOM2LOJA = [("mercadolivre", "Mercado Livre"), ("magazineluiza", "Magazine Luiza
             ("centauro", "Centauro"), ("amazon", "Amazon")]
 
 def norm(s): return re.sub(r"\s+", " ", str(s or "").strip()).casefold()
+VALID_NORM = {norm(v): v for v in VALID}   # aceita "Obrigatório em" com caixa/espaços variados
 
 # ---------------------------------------------------------------- Supabase (via curl)
 def _req(method, path, body=None, prefer=None):
@@ -97,9 +98,11 @@ def loja_do_link(u):
 # ---------------------------------------------------------------- ler aba de itens/preços
 def ler_itens_tab(rows, item_headers, cat_por_nome):
     """Suporta formato LARGO (coluna por loja) e ENXUTO (Valor no Site + join no catálogo)."""
+    if not rows or not rows[0]: return [], 0, []      # aba ausente/vazia (ex.: Acessórios apagada)
     h = rows[0]
     iConc = achar(h, "Concurso"); iCat = achar(h, "Categoria")
     iItem = achar(h, *item_headers); iQtd = achar(h, "Qtd Sugerida", "Qtd")
+    if iItem < 0: return [], 0, []                     # sem coluna de item -> nada a ler
     iFoto = achar(h, "Link da Foto", "Foto")
     iValor = achar(h, "Valor no Site", "Valor")           # preço único (novo formato)
     loja_ini = max(iCat, iItem, iQtd, iFoto, iValor) + 1
@@ -138,7 +141,8 @@ def ler_itens_tab(rows, item_headers, cat_por_nome):
 # ============================================================================ RUN
 print("Baixando abas da planilha…")
 enx_rows   = baixar_csv(GID["enx"])
-equip_rows = baixar_csv(GID["equip"])
+try: equip_rows = baixar_csv(GID["equip"])          # aba Acessórios é OPCIONAL (pode ser apagada)
+except SystemExit: equip_rows = []
 ct_rows    = baixar_csv(GID["contatos"])
 onl_rows   = baixar_csv(GID["online"])
 
@@ -207,6 +211,7 @@ for r in ct_rows[1:]:
 market_online = {v["plataforma"] for v in cat_por_nome.values() if v["plataforma"]}
 col_lojas = set()
 for tab in (enx_rows, equip_rows):
+    if not tab or not tab[0]: continue
     h = tab[0]
     mm = max(achar(h,"Categoria"), achar(h,"Item Padronizado","Produto","Acessórios","Item"),
              achar(h,"Qtd Sugerida","Qtd"), achar(h,"Link da Foto"), achar(h,"Valor no Site","Valor"))
@@ -242,8 +247,11 @@ for r in onl_rows[1:]:
                       "nome": nome, "link_produto": link or None,
                       "link_imagem": (r[iOImg].strip() if 0 <= iOImg < len(r) and r[iOImg].strip() else None),
                       "loja_id": loja_id.get(ln) if ln else None, "ativo": True})
-    obrig = [c.strip() for c in re.split(r"[;,/\n]+", r[iOObrig])] if 0 <= iOObrig < len(r) else []
-    obrig = [c for c in obrig if c in VALID]
+    obrig = []
+    if 0 <= iOObrig < len(r):
+        for c in re.split(r"[;,/\n]+", r[iOObrig]):     # tolera vírgula, ponto-e-vírgula, barra ou quebra de linha
+            v = VALID_NORM.get(norm(c))                 # tolera caixa/espaços; mapeia p/ o nome exato do concurso
+            if v: obrig.append(v)
     prod_meta.append({"nome": nome, "categoria": (r[iOCat].strip() if 0 <= iOCat < len(r) else "") or None,
                       "link": link or None, "imagem": (r[iOImg].strip() if 0 <= iOImg < len(r) else None),
                       "loja": ln, "obrig": obrig,
