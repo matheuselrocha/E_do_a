@@ -1,0 +1,23 @@
+name: Importar planilha -> Supabase
+
+# Roda a importação Sheets -> Supabase automaticamente (na nuvem, sem depender
+# do computador). Também dá para rodar na mão pelo botão "Run workflow".
+on:
+  schedule:
+    - cron: "17 * * * *"     # de hora em hora (:17, horário UTC)
+  workflow_dispatch:          # execução manual pela aba Actions
+
+# não deixa duas importações rodarem ao mesmo tempo
+concurrency:
+  group: importar-supabase
+  cancel-in-progress: false
+
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Importar (planilha -> Supabase)
+        env:
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+        run: python3 migracao/migrate_supabase.py
