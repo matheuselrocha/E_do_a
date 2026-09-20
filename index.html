@@ -804,7 +804,7 @@ async function carregarSupabase(){
     }
     if(!Object.keys(p).length) continue;   // sem preço válido → fora da calculadora (igual ao Sheets)
     blocos[bloco].itens.push({ cat, nome: it.nome_padronizado, qtd: it.qtd_sugerida==null?0:it.qtd_sugerida,
-      p, g: fem.has(it.nome_padronizado)?"F":"A", foto: it.link_foto||"", concurso: conc });
+      p, g: fem.has(it.nome_padronizado)?"F":"A", foto: fotoURL(it.link_foto), concurso: conc });
   }
   for(const b of Object.keys(blocos)) blocos[b].lojas = [...lset[b]];
   const n = Object.values(blocos).reduce((a,b)=>a+b.itens.length,0);
