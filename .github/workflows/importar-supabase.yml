@@ -2,21 +2,68 @@ name: Importar planilha -> Supabase
 
 # Roda a importação Sheets -> Supabase automaticamente (na nuvem, sem depender
 # do computador). Também dá para rodar na mão pelo botão "Run workflow".
+#
+# No "Run workflow" (manual) há a opção de RASPAR os preços do Mercado Livre e
+# gravá-los na planilha ANTES de importar. Nas execuções automáticas (cron) a
+# raspagem NÃO roda — só a importação, que é leve.
 on:
   schedule:
-    - cron: "17 * * * *"     # de hora em hora (:17, horário UTC)
+    - cron: "17 * * * *"     # de hora em hora (:17, horário UTC) — só importa
   workflow_dispatch:          # execução manual pela aba Actions
+    inputs:
+      atualizar_precos:
+        description: "Raspar preços do Mercado Livre na planilha antes de importar?"
+        type: boolean
+        default: true
 
 # não deixa duas importações rodarem ao mesmo tempo
 concurrency:
   group: importar-supabase
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   importar:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # ---- Raspagem de preços (SÓ no Run workflow manual, se marcado) ----
+      - name: Instalar dependências do bot de preços
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.atualizar_precos }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r bot-precos/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Gerar credencial do Google (a partir do secret)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.atualizar_precos }}
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: |
+          if [ -z "$GOOGLE_CREDENTIALS_JSON" ]; then
+            echo "::error::Secret GOOGLE_CREDENTIALS_JSON não configurado. Veja bot-precos/README.md."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_CREDENTIALS_JSON" > bot-precos/credenciais.json
+
+      - name: Atualizar preços (Mercado Livre) na planilha
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.atualizar_precos }}
+        working-directory: bot-precos
+        run: python atualizar_precos.py
+
+      - name: Apagar credencial do Google (sempre)
+        if: always()
+        run: rm -f bot-precos/credenciais.json
+
+      # ---- Importação (SEMPRE roda: cron e manual) ----
       - name: Importar (planilha -> Supabase)
         env:
           SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}

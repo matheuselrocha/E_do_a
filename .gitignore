@@ -3,3 +3,8 @@
 # Segredos locais — NUNCA versionar (service_role key etc.)
 .env
 migracao/.env
+
+# bot de preços
+bot-precos/credenciais.json
+bot-precos/.venv/
+__pycache__/
