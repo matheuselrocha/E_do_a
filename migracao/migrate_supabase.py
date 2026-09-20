@@ -90,6 +90,13 @@ def num(s):
 
 def canon(col):    return CANON.get(col.strip(), col.strip())
 def tipo_de(nome): return "online" if ONLINE_RE.search(nome) else "fisica"
+def foto_url(u):
+    # Converte link de imagem do Google Drive em URL exibível por <img>. Idempotente.
+    u = str(u or "").strip()
+    if not re.match(r"https?://", u, re.I): return None
+    m = (re.search(r"drive\.google\.com/(?:file/d/|open\?id=|uc\?(?:[^#]*&)?id=|thumbnail\?(?:[^#]*&)?id=)([-\w]{20,})", u, re.I)
+         or re.search(r"[?&]id=([-\w]{20,})", u))
+    return "https://drive.google.com/thumbnail?id=" + m.group(1) + "&sz=w600" if m else u
 def loja_do_link(u):
     m = re.search(r"https?://([^/]+)", u or ""); host = m.group(1).lower() if m else ""
     for key, nome in DOM2LOJA:
@@ -118,9 +125,8 @@ def ler_itens_tab(rows, item_headers, cat_por_nome):
         info = cat_por_nome.get(norm(nome))               # dados do catálogo (se existir)
         categoria = (r[iCat].strip() if 0 <= iCat < len(r) and r[iCat].strip() else None) \
                     or (info["categoria"] if info else None)
-        foto = None
-        if 0 <= iFoto < len(r) and re.match(r"https?://", r[iFoto].strip()): foto = r[iFoto].strip()
-        elif info and info["imagem"] and re.match(r"https?://", str(info["imagem"])): foto = info["imagem"]
+        foto = foto_url(r[iFoto]) if 0 <= iFoto < len(r) else None
+        if not foto and info: foto = foto_url(info["imagem"])   # senão, imagem do catálogo
         precos = []
         if 0 <= iValor < len(r):                          # ENXUTO: preço único -> loja do catálogo
             v = num(r[iValor])
@@ -246,7 +252,7 @@ for r in onl_rows[1:]:
     ln = plataforma_de(r)
     prod_rows.append({"categoria": (r[iOCat].strip() if 0 <= iOCat < len(r) else "") or None,
                       "nome": nome, "link_produto": link or None,
-                      "link_imagem": (r[iOImg].strip() if 0 <= iOImg < len(r) and r[iOImg].strip() else None),
+                      "link_imagem": (foto_url(r[iOImg]) if 0 <= iOImg < len(r) else None),
                       "loja_id": loja_id.get(ln) if ln else None, "ativo": True})
     obrig = []
     if 0 <= iOObrig < len(r):
@@ -275,7 +281,7 @@ for p, meta in zip(prod_ins, prod_meta):
                  if meta["loja"] and (meta["preco"] is not None or meta["link"]) else []
         tagged_itens.append({"concurso": c, "categoria": meta["categoria"], "nome": meta["nome"],
                              "qtd": meta["qtd"] or 1,
-                             "foto": meta["imagem"] if (meta["imagem"] and re.match(r"https?://", meta["imagem"])) else None,
+                             "foto": foto_url(meta["imagem"]),
                              "precos": precos, "origem": "catalogo", "produto_id": p["id"]})
 if tagged_itens: print(f"  (itens marcados via 'Obrigatório em': {len(tagged_itens)})")
 todos_itens = enx_itens + equip_itens + tagged_itens
