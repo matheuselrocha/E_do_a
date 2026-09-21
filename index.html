@@ -297,6 +297,12 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .vazio p{line-height:1.55;font-size:14.5px;margin:0}
 .voltarCalc{margin-top:18px;background:var(--marca);color:#f3f3ee;border:none;border-radius:9px;padding:12px 20px;font-family:Archivo,system-ui,sans-serif;font-size:14px;font-weight:700;cursor:pointer;min-height:44px}
 .voltarCalc:active{background:#2A331F}
+.cartActions{margin:-4px 12px 16px}
+.btnPDF{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:#fff;color:var(--marca);border:1.5px solid var(--marca);border-radius:11px;padding:13px 18px;font-family:Archivo,system-ui,sans-serif;font-size:14.5px;font-weight:700;cursor:pointer;min-height:48px}
+.btnPDF svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;flex:none}
+.btnPDF:active{background:var(--bg)}
+.btnPDF:disabled{opacity:.6;cursor:default}
+.btnPDF:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
 .abas button[aria-selected=true] svg{stroke-width:2}
 .abas button:focus-visible{outline:2px solid var(--fogo);outline-offset:-3px}
 
@@ -436,6 +442,7 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
   /* CARRINHO — painéis de loja em grade de 2 colunas */
   #tela[data-aba="carrinho"]{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start}
   #tela[data-aba="carrinho"]>.cartTotal,
+  #tela[data-aba="carrinho"]>.cartActions,
   #tela[data-aba="carrinho"]>h2.grupo,
   #tela[data-aba="carrinho"]>.hint,
   #tela[data-aba="carrinho"]>.vazio{grid-column:1/-1}
@@ -1172,6 +1179,9 @@ function telaCarrinho(){
   const totalAtivo = ativos.reduce((a,g)=>a+g.subtotal,0);
   const nAtivo = ativos.reduce((a,g)=>a+g.nItens,0);
   let h=`<div class="cartTotal"><div><div class="ct-l">Total do carrinho</div><div class="ct-s">${nAtivo} ${nAtivo!==1?"itens":"item"} em ${ativos.length} ${ativos.length!==1?"lojas":"loja"}</div></div><b class="num">${rs(totalAtivo)}</b></div>`;
+  h+=`<div class="cartActions"><button class="btnPDF" id="btnPDF">
+    <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+    Baixar orçamento (PDF)</button></div>`;
   if(!ativos.length) h+=`<p class="hint" style="margin:0 16px 4px">Tudo o que estava no carrinho já foi marcado como comprado. 🎖</p>`;
   for(const g of ativos) h+=cardLojaCarrinho(g);
   if(comprados.length){
@@ -1179,6 +1189,128 @@ function telaCarrinho(){
     for(const g of comprados) h+=cardLojaCarrinho(g);
   }
   return h;
+}
+
+/* =========================================================================
+   Orçamento em PDF (jsPDF + autotable, carregados só quando o usuário pede)
+   ========================================================================= */
+let _pdfLibs = null;
+function carregarPDFLibs(){
+  if(_pdfLibs) return _pdfLibs;
+  const add = src => new Promise((ok,err)=>{
+    const s=document.createElement("script"); s.src=src; s.onload=ok;
+    s.onerror=()=>err(new Error("falha ao carregar "+src));
+    document.head.appendChild(s);
+  });
+  _pdfLibs = add("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js")
+    .then(()=>add("https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"))
+    .catch(e=>{ _pdfLibs=null; throw e; });
+  return _pdfLibs;
+}
+
+async function baixarOrcamentoPDF(btn){
+  const grupos = carrinho();
+  if(!grupos.length) return;
+  const txt = btn ? btn.textContent : "";
+  if(btn){ btn.disabled=true; btn.textContent="Gerando PDF…"; }
+  try{
+    await carregarPDFLibs();
+    gerarPDF(grupos);
+    track("baixar_pdf", {
+      itens: grupos.reduce((a,g)=>a+g.nItens,0),
+      valor: grupos.reduce((a,g)=>a+g.subtotal,0),
+      lojas: grupos.length,
+    });
+  }catch(e){
+    alert("Não consegui gerar o PDF agora. Confira sua conexão e tente novamente.");
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent=txt; }
+  }
+}
+
+function gerarPDF(grupos){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:"pt", format:"a4" });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
+  const OLIVA=[62,74,47], TOPO=[34,41,26], FEITO=[107,138,70], BG=[239,238,232], CINZA=[120,120,120], RULE=[220,218,210];
+
+  const info = infoConcurso();
+  const rotulo = info ? `${info.rotulo} ${info.ano}` : "Enxoval";
+  const hoje = new Date().toLocaleDateString("pt-BR");
+
+  // Cabeçalho (faixa oliva)
+  doc.setFillColor(...OLIVA); doc.rect(0,0,W,74,"F");
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(17);
+  doc.text("Enxoval do Aprovado", M, 34);
+  doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(226,224,214);
+  doc.text("De aprovado, para aprovado", M, 51);
+  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(255,255,255);
+  doc.text(rotulo, W-M, 34, {align:"right"});
+  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(226,224,214);
+  doc.text("Orçamento gerado em "+hoje, W-M, 51, {align:"right"});
+
+  const ativos = grupos.filter(g=>!g.comprada);
+  const comprados = grupos.filter(g=>g.comprada);
+  const totalGeral = grupos.reduce((a,g)=>a+g.subtotal,0);
+  const totalFalta = ativos.reduce((a,g)=>a+g.subtotal,0);
+  const nItens = grupos.reduce((a,g)=>a+g.nItens,0);
+
+  // Resumo
+  let y = 100;
+  doc.setTextColor(...TOPO); doc.setFont("helvetica","bold"); doc.setFontSize(13);
+  doc.text("Seu orçamento", M, y);
+  doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(...CINZA);
+  doc.text(`${nItens} ${nItens!==1?"itens":"item"} em ${grupos.length} ${grupos.length!==1?"lojas":"loja"}`, M, y+15);
+  y += 36;
+
+  // Uma tabela por loja
+  for(const g of [...ativos, ...comprados]){
+    if(y > H - 130){ doc.addPage(); y = M; }
+    // barra com o nome da loja
+    doc.setFillColor(...(g.comprada?FEITO:OLIVA));
+    doc.rect(M, y, W-2*M, 24, "F");
+    doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(10.5);
+    doc.text((g.comprada?"[comprado] ":"")+g.loja, M+9, y+16);
+    doc.text(`${g.nItens} ${g.nItens>1?"itens":"item"} - ${rs(g.subtotal)}`, W-M-9, y+16, {align:"right"});
+    y += 24;
+
+    doc.autoTable({
+      startY: y,
+      margin: { left:M, right:M },
+      head: [["Qtd","Item","Unitário","Subtotal"]],
+      body: g.itens.map(i=>[ i.q+"x", i.nome, rs(i.un), rs(i.sub) ]),
+      styles: { font:"helvetica", fontSize:9.5, cellPadding:5, textColor:TOPO, lineColor:RULE, lineWidth:0.5, overflow:"linebreak" },
+      headStyles: { fillColor:BG, textColor:OLIVA, fontStyle:"bold", fontSize:8.5 },
+      columnStyles: { 0:{cellWidth:38,halign:"center"}, 2:{cellWidth:72,halign:"right"}, 3:{cellWidth:72,halign:"right",fontStyle:"bold"} },
+      theme:"grid",
+    });
+    y = doc.lastAutoTable.finalY + 16;
+  }
+
+  // Caixa de total
+  if(y > H - 90){ doc.addPage(); y = M; }
+  doc.setFillColor(...TOPO); doc.roundedRect(M, y, W-2*M, 56, 5,5, "F");
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","normal"); doc.setFontSize(10);
+  doc.text("Total do orçamento", M+16, y+23);
+  doc.setFont("helvetica","bold"); doc.setFontSize(19);
+  doc.text(rs(totalGeral), W-M-16, y+30, {align:"right"});
+  if(comprados.length){
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(196,201,182);
+    doc.text(`Falta comprar: ${rs(totalFalta)}`, M+16, y+42);
+  }
+
+  // Rodapé em todas as páginas
+  const n = doc.internal.getNumberOfPages();
+  for(let p=1;p<=n;p++){
+    doc.setPage(p);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(160,160,160);
+    doc.text("Preços de referência informados pelas lojas — confirme valor, tamanho e prazo antes de comprar.", W/2, H-30, {align:"center"});
+    doc.setFontSize(8); doc.setTextColor(...CINZA);
+    doc.text("enxovaldoaprovado.com.br", M, H-18);
+    doc.text(`Página ${p} de ${n}`, W-M, H-18, {align:"right"});
+  }
+
+  doc.save(`Orçamento Enxoval do Aprovado - ${rotulo}.pdf`);
 }
 
 /* =========================================================================
@@ -1428,6 +1560,9 @@ document.addEventListener("click", ev => {
   if(aba){ E.aba=aba.dataset.t; salvar(); desenhar(); window.scrollTo(0,0); return; }
 
   if(ev.target.closest(".voltarCalc")){ E.aba="calc"; salvar(); desenhar(); window.scrollTo(0,0); return; }
+
+  const pdf = ev.target.closest("#btnPDF");
+  if(pdf){ baixarOrcamentoPDF(pdf); return; }
 
   const wa = ev.target.closest("a[data-wa]");
   if(wa) track("whatsapp_click", { loja:wa.dataset.wa, valor:+wa.dataset.valor||0, itens:+wa.dataset.itens||0 });  // sem return: o link segue abrindo
