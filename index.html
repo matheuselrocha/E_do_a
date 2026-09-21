@@ -1208,14 +1208,34 @@ function carregarPDFLibs(){
   return _pdfLibs;
 }
 
+// Logo (emblema) como dataURL, carregado uma vez pra embutir no PDF.
+let _logoData = null;
+async function carregarLogoPDF(){
+  if(_logoData !== null) return _logoData;
+  try{
+    const res = await fetch("logo.png");
+    const blob = await res.blob();
+    _logoData = await new Promise((ok,err)=>{ const fr=new FileReader(); fr.onload=()=>ok(fr.result); fr.onerror=err; fr.readAsDataURL(blob); });
+  }catch(e){ _logoData = ""; }   // "" = falhou; o PDF segue sem o emblema
+  return _logoData;
+}
+
+// Para um item comprado numa loja online, acha o link do produto no catálogo Online.
+function linkProdutoOnline(nome, cat){
+  const c = categoriaOnline(nome, cat);
+  if(!c) return null;
+  const entry = (DADOS.links||[]).find(l=>l.nome===c);
+  return (entry && entry.op && entry.op.length && entry.op[0].u) ? entry.op[0].u : null;
+}
+
 async function baixarOrcamentoPDF(btn){
   const grupos = carrinho();
   if(!grupos.length) return;
   const txt = btn ? btn.textContent : "";
   if(btn){ btn.disabled=true; btn.textContent="Gerando PDF…"; }
   try{
-    await carregarPDFLibs();
-    gerarPDF(grupos);
+    const [,logo] = await Promise.all([ carregarPDFLibs(), carregarLogoPDF() ]);
+    gerarPDF(grupos, logo);
     track("baixar_pdf", {
       itens: grupos.reduce((a,g)=>a+g.nItens,0),
       valor: grupos.reduce((a,g)=>a+g.subtotal,0),
@@ -1228,22 +1248,27 @@ async function baixarOrcamentoPDF(btn){
   }
 }
 
-function gerarPDF(grupos){
+function gerarPDF(grupos, logo){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:"pt", format:"a4" });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
-  const OLIVA=[62,74,47], TOPO=[34,41,26], FEITO=[107,138,70], BG=[239,238,232], CINZA=[120,120,120], RULE=[220,218,210];
+  const OLIVA=[62,74,47], TOPO=[34,41,26], FOGO=[228,103,14], FEITO=[107,138,70], BG=[239,238,232], CINZA=[120,120,120], RULE=[220,218,210];
 
   const info = infoConcurso();
   const rotulo = info ? `${info.rotulo} ${info.ano}` : "Enxoval";
   const hoje = new Date().toLocaleDateString("pt-BR");
 
-  // Cabeçalho (faixa oliva)
+  // Cabeçalho (faixa oliva) — emblema à esquerda + wordmark
   doc.setFillColor(...OLIVA); doc.rect(0,0,W,74,"F");
+  let tx = M;
+  if(logo){
+    const lh=42, lw=lh*(327/400);                 // proporção do logo.png
+    try{ doc.addImage(logo, "PNG", M, (74-lh)/2, lw, lh); tx = M + lw + 14; }catch(e){}
+  }
   doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(17);
-  doc.text("Enxoval do Aprovado", M, 34);
+  doc.text("Enxoval do Aprovado", tx, 34);
   doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(226,224,214);
-  doc.text("De aprovado, para aprovado", M, 51);
+  doc.text("De aprovado, para aprovado", tx, 51);
   doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(255,255,255);
   doc.text(rotulo, W-M, 34, {align:"right"});
   doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(226,224,214);
@@ -1274,15 +1299,21 @@ function gerarPDF(grupos){
     doc.text(`${g.nItens} ${g.nItens>1?"itens":"item"} - ${rs(g.subtotal)}`, W-M-9, y+16, {align:"right"});
     y += 24;
 
+    // Itens de loja online ganham link clicável pro produto no catálogo Online.
+    const online = ehOnline(g.loja);
+    const links = g.itens.map(i => online ? linkProdutoOnline(i.nome, i.cat) : null);
+
     doc.autoTable({
       startY: y,
       margin: { left:M, right:M },
       head: [["Qtd","Item","Unitário","Subtotal"]],
-      body: g.itens.map(i=>[ i.q+"x", i.nome, rs(i.un), rs(i.sub) ]),
+      body: g.itens.map((i,idx)=>[ i.q+"x", i.nome + (links[idx] ? "   ›  ver produto online" : ""), rs(i.un), rs(i.sub) ]),
       styles: { font:"helvetica", fontSize:9.5, cellPadding:5, textColor:TOPO, lineColor:RULE, lineWidth:0.5, overflow:"linebreak" },
       headStyles: { fillColor:BG, textColor:OLIVA, fontStyle:"bold", fontSize:8.5 },
       columnStyles: { 0:{cellWidth:38,halign:"center"}, 2:{cellWidth:72,halign:"right"}, 3:{cellWidth:72,halign:"right",fontStyle:"bold"} },
       theme:"grid",
+      didParseCell: d => { if(d.section==="body" && d.column.index===1 && links[d.row.index]) d.cell.styles.textColor = FOGO; },
+      didDrawCell: d => { if(d.section==="body" && d.column.index===1 && links[d.row.index]) doc.link(d.cell.x, d.cell.y, d.cell.width, d.cell.height, { url: links[d.row.index] }); },
     });
     y = doc.lastAutoTable.finalY + 16;
   }
