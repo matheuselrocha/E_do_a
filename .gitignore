@@ -11,3 +11,4 @@ __pycache__/
 
 # Contexto interno do projeto — só local, não publicar (repo é público)
 CONTEXT.md
+CLAUDE.local.md
