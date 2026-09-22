@@ -8,3 +8,6 @@ migracao/.env
 bot-precos/credenciais.json
 bot-precos/.venv/
 __pycache__/
+
+# Contexto interno do projeto — só local, não publicar (repo é público)
+CONTEXT.md
