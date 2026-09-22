@@ -253,6 +253,7 @@ for r in onl_rows[1:]:
     prod_rows.append({"categoria": (r[iOCat].strip() if 0 <= iOCat < len(r) else "") or None,
                       "nome": nome, "link_produto": link or None,
                       "link_imagem": (foto_url(r[iOImg]) if 0 <= iOImg < len(r) else None),
+                      "preco": (num(r[iOPreco]) if 0 <= iOPreco < len(r) else None),
                       "loja_id": loja_id.get(ln) if ln else None, "ativo": True})
     obrig = []
     if 0 <= iOObrig < len(r):
