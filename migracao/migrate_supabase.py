@@ -88,6 +88,16 @@ def num(s):
     except ValueError: return None
     return v if v > 0 else None
 
+def qtd_num(s):
+    """Quantidade sugerida como inteiro, PRESERVANDO 0 (célula vazia/inválida -> None).
+    num() zera valores <=0 (serve p/ preço), então não pode ser usado p/ quantidade:
+    um item obrigatório com qtd 0 = 'fica a critério do candidato' e deve chegar como 0."""
+    t = re.sub(r"[^\d,.-]", "", str(s)).replace(",", ".")
+    if t in ("", "-", ".", "-."): return None
+    try: v = int(float(t))
+    except ValueError: return None
+    return v if v >= 0 else None
+
 def canon(col):    return CANON.get(col.strip(), col.strip())
 def tipo_de(nome): return "online" if ONLINE_RE.search(nome) else "fisica"
 def foto_url(u):
@@ -141,7 +151,7 @@ def ler_itens_tab(rows, item_headers, cat_por_nome):
                 v = num(r[idx])
                 if v is not None: precos.append({"loja": canon(col), "preco": v, "link": None})
         itens.append({"concurso": conc, "categoria": categoria, "nome": nome,
-                      "qtd": (int(num(r[iQtd])) if 0 <= iQtd < len(r) and num(r[iQtd]) else None),
+                      "qtd": (qtd_num(r[iQtd]) if 0 <= iQtd < len(r) else None),
                       "foto": foto, "precos": precos, "origem": "planilha"})
     return itens, brancos, sem_catalogo
 
@@ -264,7 +274,7 @@ for r in onl_rows[1:]:
                       "link": link or None, "imagem": (r[iOImg].strip() if 0 <= iOImg < len(r) else None),
                       "loja": ln, "obrig": obrig,
                       "preco": (num(r[iOPreco]) if 0 <= iOPreco < len(r) else None),
-                      "qtd": (int(num(r[iOQtd])) if 0 <= iOQtd < len(r) and num(r[iOQtd]) else None)})
+                      "qtd": (qtd_num(r[iOQtd]) if 0 <= iOQtd < len(r) else None)})
 prod_ins = insert("produtos_online", prod_rows)
 print(f"  produtos_online: {len(prod_ins)}")
 
@@ -281,7 +291,7 @@ for p, meta in zip(prod_ins, prod_meta):
         precos = [{"loja": meta["loja"], "preco": meta["preco"], "link": meta["link"]}] \
                  if meta["loja"] and (meta["preco"] is not None or meta["link"]) else []
         tagged_itens.append({"concurso": c, "categoria": meta["categoria"], "nome": meta["nome"],
-                             "qtd": meta["qtd"] or 1,
+                             "qtd": (meta["qtd"] if meta["qtd"] is not None else 1),  # 0 explícito é preservado; vazio -> 1
                              "foto": foto_url(meta["imagem"]),
                              "precos": precos, "origem": "catalogo", "produto_id": p["id"]})
 if tagged_itens: print(f"  (itens marcados via 'Obrigatório em': {len(tagged_itens)})")
