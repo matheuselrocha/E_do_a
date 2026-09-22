@@ -643,6 +643,18 @@ function csv(txt){
 }
 const numBR = s => { const n = parseFloat(String(s).replace(/[^\d,.-]/g,"").replace(/\.(?=\d{3}(\D|$))/g,"").replace(",",".")); return isNaN(n)?0:n; };
 
+// Normaliza texto (minúsculas, sem acento, sem espaços nas pontas) p/ comparar categorias.
+const normCat = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+// Decide o bloco da calculadora a partir da categoria do item. Tolera variações de caixa/acento e
+// singular/plural em "Coturno(s)" — inclusive para itens online marcados como obrigatórios, cuja
+// categoria vem do catálogo online (ex.: "Coturnos") e não do fardamento.
+function blocoDaCategoria(cat, blocoDefault){
+  const c = normCat(cat);
+  if(c.startsWith(normCat(CFG.coturnoCat))) return "coturno";                       // "Coturno" e "Coturnos"
+  if((CFG.equipCats||[]).some(e => normCat(e) === c)) return "equip";
+  return blocoDefault;
+}
+
 // Converte link de imagem do Google Drive (compartilhamento) em URL exibível por <img>.
 // Ex.: .../file/d/ID/view  ou  ?id=ID  ->  https://drive.google.com/thumbnail?id=ID&sz=w600
 // URLs de outros domínios (mlstatic, wixstatic, etc.) passam direto.
@@ -685,7 +697,7 @@ function moldarTabela(linhas, blocoDefault, saida){
     const p = {};
     for(let c=0;c<lojas.length;c++){ const v=numBR(ln[lojaIni+c]); if(v>0) p[lojas[c]] = Math.round(v); }
     if(!Object.keys(p).length) continue;                       // vazio/"-"/0 = loja não vende → descarta se nenhum preço
-    const bloco = (cat===CFG.coturnoCat) ? "coturno" : blocoDefault;
+    const bloco = blocoDaCategoria(cat, blocoDefault);
     if(!saida[bloco]) continue;
     if(!saida[bloco].lojas.length) saida[bloco].lojas = lojas;
     const foto = iFoto>=0 ? fotoURL(ln[iFoto]) : "";
@@ -808,7 +820,7 @@ async function carregarSupabase(){
     const conc = it.concursos && it.concursos.nome;
     if(!IDS_CONCURSO.has(conc)) continue;
     const cat = it.categoria || "";
-    const bloco = (cat===CFG.coturnoCat) ? "coturno" : (CFG.equipCats.includes(cat) ? "equip" : "enxoval");
+    const bloco = blocoDaCategoria(cat, "enxoval");
     const p = {};
     for(const pr of (it.precos||[])){
       if(pr.lojas && pr.preco!=null){ p[pr.lojas.nome] = Math.round(Number(pr.preco)); lset[bloco].add(pr.lojas.nome); }
