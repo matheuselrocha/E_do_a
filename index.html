@@ -241,10 +241,8 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .ferbtn:active{background:var(--bg)}
 .ferbtn.forte{background:var(--ink);border-color:var(--ink);color:#f3f3ee}
 .ferbtn.ghost{color:var(--ink2)}
-.ferbtn.inicial{flex-basis:100%;background:var(--fogo);border-color:var(--fogo);color:#fff;font-size:13.5px}
-.ferbtn.inicial .sm{display:block;font-size:11px;font-weight:500;opacity:.88;margin-top:2px}
+.ferbtn.inicial{background:var(--fogo);border-color:var(--fogo);color:#fff}
 .ferbtn.inicial:active{background:var(--fogo-d)}
-.ferbtn.umaloja{flex-basis:100%}
 /* pop-up "Tudo numa loja só": reaproveita o fundo .lead-back */
 .lsel{margin:auto;width:100%;max-width:432px;background:var(--card);border-radius:18px;overflow:hidden;box-shadow:0 30px 70px -20px rgba(0,0,0,.65)}
 .lsel-top{display:flex;align-items:flex-start;gap:12px;padding:18px 18px 12px;border-bottom:1px solid var(--rule2)}
@@ -436,7 +434,9 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
   .falta b{font-size:46px}
 
   .hint{max-width:780px}
-  .ferramentas{max-width:640px}
+  /* ferramentas: uma barra só na largura da grade (mobile empilha em linhas) */
+  .ferramentas{flex-wrap:nowrap;padding:0 14px;margin:4px 0 10px}
+  .ferbtn{min-height:44px}
   .rodape{max-width:820px}
 
   /* CALCULADORA — itens em grade de 2 colunas (cada item vira um cartão) */
@@ -538,15 +538,8 @@ const CFG = {
   // id = valor exato da coluna "Concurso"; rotulo/ano = texto do botão; badge = selo no topo.
   // msg = como o candidato se apresenta na mensagem de WhatsApp para a loja ("Sou do ...").
   // desc = subtítulo do botão na tela inicial.
-  // itensIniciais = nomes (Item Padronizado) que o botão "Itens iniciais" põe no carrinho — o botão só
-  // aparece se o concurso estiver com "Status de Ativação" E "Botão de Itens Iniciais" marcados.
   concursos: [
-    { id:"CBMDF - 2025",    rotulo:"CBMDF",    ano:"2025", badge:"CBMDF", msg:"CFP CBMDF 2026", desc:"Corpo de Bombeiros Militar do DF",
-      itensIniciais: [
-        "Conjunto Agasalho (Blusa + Calça)", "Calça Preta Tática", "Camiseta CFP Curta", "Camiseta CFP Longa",
-        "Fita de Cinto Vermelha", "Fivela CBMDF", "Gorro Ed. Física Vermelho", "Short Vermelho",
-        "Camiseta Vermelha Bordada (OP)", "Conjunto Prontidão (Gandola + Calça)", "Gorro SD / Gorro Laranja (Praça)"
-      ] },
+    { id:"CBMDF - 2025",    rotulo:"CBMDF",    ano:"2025", badge:"CBMDF", msg:"CFP CBMDF 2026", desc:"Corpo de Bombeiros Militar do DF" },
     { id:"CFP PMDF - 2023", rotulo:"CFP PMDF", ano:"2023", badge:"PMDF",  msg:"CFP PMDF 2023", desc:"Polícia Militar do DF" }
   ],
   // Fonte de dados: planilha "Backend - Controle de Enxoval".
@@ -637,11 +630,9 @@ const concursosAtivos = () => CATALOGO.filter(r=>r.ativo).map(r=>metaConcurso(r.
 // (assim o formulário sempre acontece antes da calculadora, mesmo após recarregar).
 let telaInicial = !concursoValido(E.concurso) || !leadJaEnviado();
 const infoConcurso = () => E.concurso ? metaConcurso(E.concurso) : null;
-// Botão "Itens iniciais": concurso ativo + "Botão de Itens Iniciais" marcado + lista definida no CFG.
-const itensIniciais = () => {
-  const r = linhaCatalogo(E.concurso);
-  return (r && r.ativo && r.iniciais) ? (infoConcurso()?.itensIniciais || []) : [];
-};
+// Botão "Itens iniciais": concurso com "Status de Ativação" + "Botão de Itens Iniciais" marcados na aba Concursos.
+// Os itens são os marcados em "Item Inicial no CFP" (abas Enxoval e Compras Online) → it.ini.
+const botaoIniciais = () => { const r = linhaCatalogo(E.concurso); return !!(r && r.ativo && r.iniciais); };
 const chaveLoja = loja => (E.concurso||"") + "::" + loja;   // "já comprou" é separado por concurso
 
 let DADOS = null, AO_VIVO = false;
@@ -721,7 +712,8 @@ function moldarTabela(linhas, blocoDefault, saida){
   const iItem = acharCol(header, "Item Padronizado", "Acessórios", "Acessorios", "Item");
   const iQtd  = acharCol(header, "Qtd Sugerida", "Qtd", "Quantidade");
   const iFoto = acharCol(header, "Link da Foto", "Foto", "Imagem");
-  const metaMax = Math.max(iCat, iItem, iQtd, iFoto);           // as lojas começam após a última coluna de meta
+  const iIni  = acharCol(header, "Item Inicial no CFP", "Item Inicial", "Itens Iniciais");
+  const metaMax = Math.max(iCat, iItem, iQtd, iFoto, iIni);           // as lojas começam após a última coluna de meta
   const lojaIni = (metaMax>=0 ? metaMax : (CFG.colInicial-1)) + 1;
   const lojas = header.slice(lojaIni).map(s=>String(s).trim()).filter(Boolean);
   for(let r=1;r<linhas.length;r++){
@@ -737,7 +729,8 @@ function moldarTabela(linhas, blocoDefault, saida){
     if(!saida[bloco]) continue;
     if(!saida[bloco].lojas.length) saida[bloco].lojas = lojas;
     const foto = iFoto>=0 ? fotoURL(ln[iFoto]) : "";
-    saida[bloco].itens.push({ cat, nome, qtd:Math.round(numBR(ln[iQtd])), p, g: fem.has(nome)?"F":"A", foto, concurso:conc });
+    saida[bloco].itens.push({ cat, nome, qtd:Math.round(numBR(ln[iQtd])), p, g: fem.has(nome)?"F":"A", foto, concurso:conc,
+      ini: iIni>=0 && marcado(ln[iIni]) });
   }
 }
 function moldar(enxLinhas, eqLinhas){
@@ -849,9 +842,11 @@ async function sbGet(q){
 }
 const instaHandle = u => { const m=String(u||"").match(/instagram\.com\/([^/?#]+)/i); return m ? "@"+m[1] : ""; };
 
+const ITENS_Q = "itens_enxoval?select=nome_padronizado,categoria,qtd_sugerida,link_foto,concursos!inner(nome),precos(preco,lojas(nome))";
 async function carregarSupabase(){
   const [itens, prods, lc] = await Promise.all([
-    sbGet("itens_enxoval?select=nome_padronizado,categoria,qtd_sugerida,link_foto,concursos!inner(nome),precos(preco,lojas(nome))"),
+    // item_inicial pode não existir ainda no banco (coluna nova) → tenta sem ela antes de cair pro Sheets
+    sbGet(ITENS_Q.replace("link_foto,", "link_foto,item_inicial,")).catch(()=>sbGet(ITENS_Q)),
     sbGet("produtos_online?select=categoria,nome,link_produto,link_imagem,preco&order=categoria"),
     sbGet("loja_concurso?select=concursos(nome),lojas!inner(nome,tipo,telefone,instagram,link_maps)&lojas.tipo=eq.fisica"),
   ]);
@@ -869,7 +864,7 @@ async function carregarSupabase(){
     }
     if(!Object.keys(p).length) continue;   // sem preço válido → fora da calculadora (igual ao Sheets)
     blocos[bloco].itens.push({ cat, nome: it.nome_padronizado, qtd: it.qtd_sugerida==null?0:it.qtd_sugerida,
-      p, g: fem.has(it.nome_padronizado)?"F":"A", foto: fotoURL(it.link_foto), concurso: conc });
+      p, g: fem.has(it.nome_padronizado)?"F":"A", foto: fotoURL(it.link_foto), concurso: conc, ini: !!it.item_inicial });
   }
   for(const b of Object.keys(blocos)) blocos[b].lojas = [...lset[b]];
   const n = Object.values(blocos).reduce((a,b)=>a+b.itens.length,0);
@@ -1059,8 +1054,7 @@ function itemHTML(it){
   </article>`;
 }
 
-// Item faz parte da lista de "Itens iniciais" do concurso selecionado (compara sem caixa/acento).
-function ehInicial(it){ return itensIniciais().some(n => normCat(n) === normCat(it.nome)); }
+const ehInicial = it => !!it.ini;   // marcado em "Item Inicial no CFP"
 
 // Lojas que vendem itens do concurso selecionado: quantos itens cada uma vende e o total (qtd atual).
 function lojasDoConcurso(){
@@ -1124,14 +1118,14 @@ function telaCalc(){
   for(const it of its) (por[it.bloco] ||= []).push(it);
   const alvos = its.filter(it=>qtdDe(it)>0);
   const todosSel = alvos.length>0 && alvos.every(emCarrinho);
-  const ini = itensIniciais().length ? its.filter(ehInicial) : [];
+  const ini = botaoIniciais() ? its.filter(ehInicial) : [];
   let h=`<p class="hint" style="margin-top:14px">Escolha a <b>loja</b> pra comparar preços e ajuste a <b>quantidade</b> no <b>±</b>. Marque o <b>✓</b> pra <b>adicionar o item ao carrinho</b>.</p>
   <div class="ferramentas">
-    ${ini.length?`<button class="ferbtn inicial" data-act="iniciais">Itens iniciais do curso <span class="sm">${ini.length} itens · só eles no carrinho</span></button>`:""}
+    ${ini.length?`<button class="ferbtn inicial" data-act="iniciais" title="Deixa no carrinho só os ${ini.length} itens iniciais do curso">Itens iniciais</button>`:""}
     <button class="ferbtn forte" data-act="tudo">${todosSel?"Desmarcar tudo":"Selecionar tudo"}</button>
     <button class="ferbtn" data-act="baratas">Lojas mais baratas</button>
+    <button class="ferbtn" data-act="umaloja" title="Comprar tudo numa loja só">Loja única</button>
     <button class="ferbtn ghost" data-act="limpar">Limpar escolhas</button>
-    <button class="ferbtn umaloja" data-act="umaloja">Comprar tudo numa loja só…</button>
   </div>`;
   for(const [chave,cfg] of Object.entries(CFG.blocos)){
     const lista=por[chave]; if(!lista?.length) continue;

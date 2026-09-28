@@ -26,6 +26,11 @@ alter table produtos_online
 alter table itens_enxoval
   add column if not exists produto_online_id uuid references produtos_online(id) on delete set null;
 
+-- "Item Inicial no CFP" (abas Enxoval e Compras Online): o botão "Itens iniciais" da calculadora
+-- põe no carrinho só os itens com esta marca. Reexecutável.
+alter table itens_enxoval
+  add column if not exists item_inicial boolean not null default false;
+
 create index if not exists idx_prod_online_loja  on produtos_online (loja_id);
 create index if not exists idx_itens_prod_online on itens_enxoval (produto_online_id);
 

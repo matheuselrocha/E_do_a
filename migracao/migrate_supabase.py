@@ -60,6 +60,13 @@ def _req(method, path, body=None, prefer=None):
     out = p.stdout.strip()
     return json.loads(out) if out else None
 
+def tem_coluna(table, col):
+    """True se a coluna existe no Supabase (sonda via PostgREST, sem abortar o script)."""
+    p = subprocess.run(["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
+                        f"{SUPA_URL}/rest/v1/{table}?select={col}&limit=1",
+                        "-H", "apikey: " + KEY, "-H", "Authorization: Bearer " + KEY], capture_output=True, text=True)
+    return p.stdout.strip() == "200"
+
 def insert(table, rows):
     out = []
     for i in range(0, len(rows), 500):
@@ -99,6 +106,7 @@ def qtd_num(s):
     except ValueError: return None
     return v if v >= 0 else None
 
+def sim(s): return norm(s) in {"true", "verdadeiro", "sim", "s", "x", "1", "ativo"}   # checkbox do Sheets
 def canon(col):    return CANON.get(col.strip(), col.strip())
 def tipo_de(nome): return "online" if ONLINE_RE.search(nome) else "fisica"
 def foto_url(u):
@@ -115,6 +123,7 @@ def loja_do_link(u):
     return None
 
 # ---------------------------------------------------------------- ler aba de itens/preços
+INICIAL_COLS = ("Item Inicial no CFP", "Item Inicial", "Itens Iniciais")
 def ler_itens_tab(rows, item_headers, cat_por_nome):
     """Suporta formato LARGO (coluna por loja) e ENXUTO (Valor no Site + join no catálogo)."""
     if not rows or not rows[0]: return [], 0, []      # aba ausente/vazia (ex.: Acessórios apagada)
@@ -124,7 +133,8 @@ def ler_itens_tab(rows, item_headers, cat_por_nome):
     if iItem < 0: return [], 0, []                     # sem coluna de item -> nada a ler
     iFoto = achar(h, "Link da Foto", "Foto")
     iValor = achar(h, "Valor no Site", "Valor")           # preço único (novo formato)
-    loja_ini = max(iCat, iItem, iQtd, iFoto, iValor) + 1
+    iIni = achar(h, *INICIAL_COLS)                        # checkbox "Item Inicial no CFP"
+    loja_ini = max(iCat, iItem, iQtd, iFoto, iValor, iIni) + 1
     lojas_cols = [c.strip() for c in h[loja_ini:] if c.strip()]
     itens, brancos, sem_catalogo = [], 0, []
     for r in rows[1:]:
@@ -153,13 +163,13 @@ def ler_itens_tab(rows, item_headers, cat_por_nome):
                 if v is not None: precos.append({"loja": canon(col), "preco": v, "link": None})
         itens.append({"concurso": conc, "categoria": categoria, "nome": nome,
                       "qtd": (qtd_num(r[iQtd]) if 0 <= iQtd < len(r) else None),
-                      "foto": foto, "precos": precos, "origem": "planilha"})
+                      "foto": foto, "precos": precos, "origem": "planilha",
+                      "inicial": 0 <= iIni < len(r) and sim(r[iIni])})
     return itens, brancos, sem_catalogo
 
 # ============================================================================ RUN
 print("Baixando abas da planilha…")
 # ---- aba "Concursos": define os concursos importados e o flag "ativo" (Status de Ativação) ----
-def sim(s): return norm(s) in {"true", "verdadeiro", "sim", "s", "x", "1", "ativo"}
 ATIVO, ESTADO_CONC = {}, {}
 try:
     cc_rows = baixar_csv(GID["concursos"])
@@ -188,6 +198,7 @@ iOLink = achar(online_h, "Link do Produto", "Link"); iOImg = achar(online_h, "Li
 iOPlat = achar(online_h, "Plataforma", "Loja", "Site")
 iOObrig = achar(online_h, "Obrigatório em", "Obrigatorio em", "Obrigatório", "Obrigatorio")
 iOPreco = achar(online_h, "Preço", "Preco"); iOQtd = achar(online_h, "Qtd Sugerida", "Qtd")
+iOIni = achar(online_h, *INICIAL_COLS)
 def plataforma_de(r):
     if 0 <= iOPlat < len(r) and r[iOPlat].strip(): return r[iOPlat].strip()
     return loja_do_link(r[iOLink]) if 0 <= iOLink < len(r) else None
@@ -293,7 +304,8 @@ for r in onl_rows[1:]:
                       "link": link or None, "imagem": (r[iOImg].strip() if 0 <= iOImg < len(r) else None),
                       "loja": ln, "obrig": obrig,
                       "preco": (num(r[iOPreco]) if 0 <= iOPreco < len(r) else None),
-                      "qtd": (qtd_num(r[iOQtd]) if 0 <= iOQtd < len(r) else None)})
+                      "qtd": (qtd_num(r[iOQtd]) if 0 <= iOQtd < len(r) else None),
+                      "inicial": 0 <= iOIni < len(r) and sim(r[iOIni])})
 prod_ins = insert("produtos_online", prod_rows)
 print(f"  produtos_online: {len(prod_ins)}")
 
@@ -312,7 +324,8 @@ for p, meta in zip(prod_ins, prod_meta):
         tagged_itens.append({"concurso": c, "categoria": meta["categoria"], "nome": meta["nome"],
                              "qtd": (meta["qtd"] if meta["qtd"] is not None else 1),  # 0 explícito é preservado; vazio -> 1
                              "foto": foto_url(meta["imagem"]),
-                             "precos": precos, "origem": "catalogo", "produto_id": p["id"]})
+                             "precos": precos, "origem": "catalogo", "produto_id": p["id"],
+                             "inicial": meta["inicial"]})
 if tagged_itens: print(f"  (itens marcados via 'Obrigatório em': {len(tagged_itens)})")
 todos_itens = enx_itens + equip_itens + tagged_itens
 
@@ -330,6 +343,11 @@ insert("loja_concurso", lc)
 print(f"  loja_concurso: {len(lc)}")
 
 # ---- 5) itens_enxoval (produto_online_id por construção ou por nome) ----
+# item_inicial: marcado em QUALQUER origem (aba Enxoval/Acessórios ou Compras Online) vale pro item.
+COL_INICIAL = tem_coluna("itens_enxoval", "item_inicial")
+if not COL_INICIAL: print("  AVISO: coluna itens_enxoval.item_inicial não existe — rode o 02_online.sql (botão 'Itens iniciais' fica sem dados).")
+inicial_de = defaultdict(bool)
+for it in todos_itens: inicial_de[(it["concurso"], it["nome"])] |= bool(it.get("inicial"))
 item_rows, chave_item, vistos, online_sem_match = [], [], set(), []
 for it in todos_itens:
     ch = (it["concurso"], it["nome"])
@@ -342,12 +360,13 @@ for it in todos_itens:
         online_sem_match.append(ch)
     item_rows.append({"concurso_id": conc_id[it["concurso"]], "categoria": it["categoria"],
                       "nome_padronizado": it["nome"], "qtd_sugerida": it["qtd"],
-                      "cargo": None, "link_foto": it["foto"], "produto_online_id": pid})
+                      "cargo": None, "link_foto": it["foto"], "produto_online_id": pid,
+                      **({"item_inicial": inicial_de[ch]} if COL_INICIAL else {})})
     chave_item.append(ch)
 item_id = {}
 for ch, row in zip(chave_item, insert("itens_enxoval", item_rows)): item_id[ch] = row["id"]
 ligados = sum(1 for r in item_rows if r["produto_online_id"])
-print(f"  itens_enxoval: {len(item_id)}  (ligados ao catálogo: {ligados})")
+print(f"  itens_enxoval: {len(item_id)}  (ligados ao catálogo: {ligados}; itens iniciais: {sum(1 for r in item_rows if r.get('item_inicial'))})")
 
 # ---- 6) precos (de-dup global por (item, loja); o 1º a aparecer vence — fardamento tem prioridade) ----
 preco_map = {}
