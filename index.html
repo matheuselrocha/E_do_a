@@ -785,6 +785,21 @@ async function carregarOnline(){
 // Contatos das lojas (cabeçalho: Estado | Cidade/Município | Loja | Telefone | Instagram | Maps | Concurso (1) | Concurso (2)).
 // Colunas localizadas pelo nome. Uma loja pode atender até 2 concursos; o filtro por concurso é feito na exibição (telaLojas).
 // Cada loja: [nome, telefone, @instagram, urlInstagram, urlMaps, [concursos]].
+// Lojas desativadas na aba Contatos (só usado no caminho Sheets; no Supabase vem lojas.ativo).
+let LOJAS_INATIVAS = [];
+// Casa o nome da coluna de preço (ex.: "Demir") com o nome da aba Contatos — mesma regra de contatoDe().
+function lojaInativa(loja){
+  const L = loja.toLowerCase().trim();
+  return LOJAS_INATIVAS.some(n => { const x=n.toLowerCase().trim(), fw=x.split(" ")[0];
+    return x===L || x.startsWith(L) || (fw.length>2 && L.startsWith(fw)); });
+}
+function tirarLojasInativas(blocos){
+  if(!LOJAS_INATIVAS.length) return;
+  for(const b of Object.values(blocos)){
+    b.lojas = b.lojas.filter(l=>!lojaInativa(l));
+    b.itens = b.itens.filter(it=>{ for(const l of Object.keys(it.p)) if(lojaInativa(l)) delete it.p[l]; return Object.keys(it.p).length>0; });
+  }
+}
 async function carregarContatos(){
   const linhas = await lerCSV(CFG.gid.contatos);
   const header = linhas[0] || [];
@@ -794,11 +809,14 @@ async function carregarContatos(){
   const iMaps = acharCol(header, "Maps", "Mapa", "Endereço", "Endereco");
   const iC1   = acharCol(header, "Concurso (1)", "Concurso 1", "Concurso");
   const iC2   = acharCol(header, "Concurso (2)", "Concurso 2");
+  const iAtv  = acharCol(header, "Status de Ativação", "Status de Ativacao", "Ativo");
   if(iNome<0) return [];                                        // cabeçalho inesperado → mantém snapshot
   const out=[];
+  LOJAS_INATIVAS = [];
   for(let r=1;r<linhas.length;r++){
     const ln = linhas[r] || [];
     const nome = String(ln[iNome]||"").trim(); if(!nome) continue;
+    if(iAtv>=0 && !marcado(ln[iAtv])){ LOJAS_INATIVAS.push(nome); continue; }   // "Status de Ativação" desmarcado
     const tel = String(iTel>=0?ln[iTel]:"").replace(/^telefone[:\s]*/i,"").trim();
     let insta = String(iIns>=0?ln[iIns]:"").trim(), ig="";
     if(insta.startsWith("@")) ig = "https://www.instagram.com/"+insta.replace(/^@/,"").trim(); else insta="";
@@ -842,13 +860,13 @@ async function sbGet(q){
 }
 const instaHandle = u => { const m=String(u||"").match(/instagram\.com\/([^/?#]+)/i); return m ? "@"+m[1] : ""; };
 
-const ITENS_Q = "itens_enxoval?select=nome_padronizado,categoria,qtd_sugerida,link_foto,concursos!inner(nome),precos(preco,lojas(nome))";
+const ITENS_Q = "itens_enxoval?select=nome_padronizado,categoria,qtd_sugerida,link_foto,concursos!inner(nome),precos(preco,lojas(nome,ativo))";
 async function carregarSupabase(){
   const [itens, prods, lc] = await Promise.all([
     // item_inicial pode não existir ainda no banco (coluna nova) → tenta sem ela antes de cair pro Sheets
     sbGet(ITENS_Q.replace("link_foto,", "link_foto,item_inicial,")).catch(()=>sbGet(ITENS_Q)),
-    sbGet("produtos_online?select=categoria,nome,link_produto,link_imagem,preco&order=categoria"),
-    sbGet("loja_concurso?select=concursos(nome),lojas!inner(nome,tipo,telefone,instagram,link_maps)&lojas.tipo=eq.fisica"),
+    sbGet("produtos_online?select=categoria,nome,link_produto,link_imagem,preco,lojas(ativo)&order=categoria"),
+    sbGet("loja_concurso?select=concursos(nome),lojas!inner(nome,tipo,telefone,instagram,link_maps)&lojas.tipo=eq.fisica&lojas.ativo=eq.true"),
   ]);
   const fem = new Set(CFG.femininos);
   const blocos = { enxoval:{lojas:[],itens:[]}, coturno:{lojas:[],itens:[]}, equip:{lojas:[],itens:[]} };
@@ -860,7 +878,7 @@ async function carregarSupabase(){
     const bloco = blocoDaCategoria(cat, "enxoval");
     const p = {};
     for(const pr of (it.precos||[])){
-      if(pr.lojas && pr.preco!=null){ p[pr.lojas.nome] = Math.round(Number(pr.preco)); lset[bloco].add(pr.lojas.nome); }
+      if(pr.lojas && pr.lojas.ativo!==false && pr.preco!=null){ p[pr.lojas.nome] = Math.round(Number(pr.preco)); lset[bloco].add(pr.lojas.nome); }
     }
     if(!Object.keys(p).length) continue;   // sem preço válido → fora da calculadora (igual ao Sheets)
     blocos[bloco].itens.push({ cat, nome: it.nome_padronizado, qtd: it.qtd_sugerida==null?0:it.qtd_sugerida,
@@ -875,6 +893,7 @@ async function carregarSupabase(){
   for(const pr of prods){
     const cat=(pr.categoria||"").trim(), u=(pr.link_produto||"").trim();
     if(!cat || !/^https?:\/\//i.test(u)) continue;
+    if(pr.lojas && pr.lojas.ativo===false) continue;           // loja desativada na aba Contatos
     if(!mapa.has(cat)) mapa.set(cat, {nome:cat, op:[]});
     mapa.get(cat).op.push({ t: pr.nome||u, u, img: (fotoURL(pr.link_imagem) || IMG_ONLINE[u] || ""),
                             preco: (pr.preco!=null ? Number(pr.preco) : 0) });
@@ -928,6 +947,7 @@ async function carregar(){
   try{
     const cts = await carregarContatos();
     if(cts.length) DADOS.contatos = cts;        // contatos ao vivo (inclui Maps; fallback: snapshot)
+    if(DADOS !== SNAPSHOT) tirarLojasInativas(DADOS.blocos);
   }catch(e){ console.warn("Contatos ao vivo falharam — usando cópia local:", e.message); }
   try{
     const cat = await carregarCatalogo();

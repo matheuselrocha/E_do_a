@@ -241,6 +241,7 @@ ct_h = ct_rows[0]
 iNome = achar(ct_h, "Loja", "Nome"); iTel = achar(ct_h, "Telefone")
 iIns = achar(ct_h, "Instagram"); iMaps = achar(ct_h, "Maps")
 iC1 = achar(ct_h, "Concurso (1)", "Concurso 1", "Concurso"); iC2 = achar(ct_h, "Concurso (2)", "Concurso 2")
+iCAtv = achar(ct_h, "Status de Ativação", "Status de Ativacao", "Ativo")   # desmarcada = loja some do site
 contato_por_loja = {}
 for r in ct_rows[1:]:
     if len(r) <= iNome: continue
@@ -252,7 +253,8 @@ for r in ct_rows[1:]:
     if not re.match(r"https?://", maps or ""): maps = None
     tel = re.sub(r"^telefone[:\s]*", "", r[iTel] if 0 <= iTel < len(r) else "", flags=re.I).strip() or None
     concs = [r[ic].strip() for ic in (iC1, iC2) if 0 <= ic < len(r) and r[ic].strip() in VALID]
-    contato_por_loja[nome] = {"telefone": tel, "instagram": ig, "link_maps": maps, "concursos": concs}
+    contato_por_loja[nome] = {"telefone": tel, "instagram": ig, "link_maps": maps, "concursos": concs,
+                              "ativo": sim(r[iCAtv]) if 0 <= iCAtv < len(r) else True}
 
 # marketplaces do catálogo (Plataforma) + colunas de preço das abas de itens
 market_online = {v["plataforma"] for v in cat_por_nome.values() if v["plataforma"]}
@@ -261,7 +263,8 @@ for tab in (enx_rows, equip_rows):
     if not tab or not tab[0]: continue
     h = tab[0]
     mm = max(achar(h,"Categoria"), achar(h,"Item Padronizado","Produto","Acessórios","Item"),
-             achar(h,"Qtd Sugerida","Qtd"), achar(h,"Link da Foto"), achar(h,"Valor no Site","Valor"))
+             achar(h,"Qtd Sugerida","Qtd"), achar(h,"Link da Foto"), achar(h,"Valor no Site","Valor"),
+             achar(h, *INICIAL_COLS))                   # colunas de meta antes das lojas
     for c in h[mm+1:]:
         if c.strip(): col_lojas.add(c.strip())
 
@@ -277,10 +280,13 @@ for m in market_online:
 loja_id = {l["nome"]: l["id"] for l in insert("lojas",
           [{"nome": n, "tipo": tipo_de(n), "telefone": contato_por_loja.get(n, {}).get("telefone"),
             "instagram": contato_por_loja.get(n, {}).get("instagram"),
-            "link_maps": contato_por_loja.get(n, {}).get("link_maps"), "ativo": True}
+            "link_maps": contato_por_loja.get(n, {}).get("link_maps"),
+            "ativo": contato_por_loja.get(n, {}).get("ativo", True)}   # fora da aba Contatos = ativa
            for n in sorted(todas_lojas)])}
 lojas_online = sorted([n for n in todas_lojas if tipo_de(n) == "online"])
 print(f"  lojas: {len(loja_id)}  (online: {lojas_online})")
+inativas = sorted(n for n, c in contato_por_loja.items() if not c["ativo"])
+if inativas: print(f"  lojas desativadas (ocultas no site): {inativas}")
 
 # ---- 3) produtos_online ----
 prod_rows, prod_meta = [], []
