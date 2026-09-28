@@ -1141,7 +1141,7 @@ function telaCalc(){
   const ini = botaoIniciais() ? its.filter(ehInicial) : [];
   let h=`<p class="hint" style="margin-top:14px">Escolha a <b>loja</b> pra comparar preços e ajuste a <b>quantidade</b> no <b>±</b>. Marque o <b>✓</b> pra <b>adicionar o item ao carrinho</b>.</p>
   <div class="ferramentas">
-    ${ini.length?`<button class="ferbtn inicial" data-act="iniciais" title="Deixa no carrinho só os ${ini.length} itens iniciais do curso">Itens iniciais</button>`:""}
+    ${ini.length?`<button class="ferbtn inicial" data-act="iniciais" title="Deixa no carrinho só os itens iniciais do curso">Itens iniciais</button>`:""}
     <button class="ferbtn forte" data-act="tudo">${todosSel?"Desmarcar tudo":"Selecionar tudo"}</button>
     <button class="ferbtn" data-act="baratas">Lojas mais baratas</button>
     <button class="ferbtn" data-act="umaloja" title="Comprar tudo numa loja só">Loja única</button>
@@ -1761,15 +1761,15 @@ document.addEventListener("click", ev => {
       if(todosSel){ for(const it of alvos) E.cart[it.id]=false; }                    // desmarca tudo (mantém as lojas)
       else { for(const it of alvos){ if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja; if(!E.cart[it.id]){ E.cart[it.id]=true; track("add_ao_carrinho",{loja:lojaDe(it), item:it.nome, valor:unDe(it)*qtdDe(it), qtd:qtdDe(it), via:"selecionar_tudo"}); } } }
     } else if(act==="iniciais"){
-      // Deixa no carrinho SOMENTE os itens iniciais: garante qtd ≥ 1 e loja (a mais barata, se não escolhida).
-      const todosIts = todos(), ini = todosIts.filter(ehInicial);
-      const outros = todosIts.filter(it=>!ehInicial(it) && emCarrinho(it)).length;
+      // Deixa no carrinho SOMENTE os itens iniciais (loja mais barata, se não escolhida). Item com qtd 0
+      // ("a critério do candidato") ganha a loja mas fica fora do carrinho — igual ao "Selecionar tudo".
+      const todosIts = todos(), ini = todosIts.filter(it=>ehInicial(it) && qtdDe(it)>0);
+      const outros = todosIts.filter(it=>!ini.includes(it) && emCarrinho(it)).length;
       if(outros && !confirm(`Isso deixa no carrinho só os ${ini.length} itens iniciais (tira os outros ${outros}). Continuar?`)) return;
       for(const it of todosIts){
         if(!ehInicial(it)){ E.cart[it.id]=false; continue; }
-        if(qtdDe(it)<=0) E.qtd[it.id]=Math.max(1, it.qtd);
         if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja;
-        E.cart[it.id]=true;
+        E.cart[it.id] = qtdDe(it)>0;
       }
       track("itens_iniciais", { concurso:E.concurso, itens:ini.length });
     } else if(act==="umaloja"){

@@ -434,7 +434,7 @@ print("  sincronização (gravadas / removidas por terem saído da planilha):")
 for t, (g, rm) in SYNC.items(): print(f"    {t:16s}: {g} / {rm}")
 for t in ["concursos", "lojas", "loja_concurso", "produtos_online", "itens_enxoval", "precos"]:
     print(f"  {t:16s}: {count(t)} linhas")
-print("\n  itens por concurso:", dict(Counter(it["concurso"] for it in todos_itens if (it["concurso"], it["nome"]) in item_id)))
+print("\n  itens por concurso:", dict(Counter(conc for conc, _ in item_id)))   # item_id já é único por (concurso, nome)
 print(f"  itens ligados ao catálogo (produto_online_id): {ligados}")
 
 print(f"\n  ITENS COM 'Valor no Site' SEM CORRESPONDÊNCIA NO CATÁLOGO ({len(sem_catalogo)}):")
