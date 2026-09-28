@@ -265,7 +265,7 @@ iIns = achar(ct_h, "Instagram"); iMaps = achar(ct_h, "Maps")
 iC1 = achar(ct_h, "Concurso (1)", "Concurso 1", "Concurso"); iC2 = achar(ct_h, "Concurso (2)", "Concurso 2")
 iCAtv = achar(ct_h, "Status de Ativação", "Status de Ativacao", "Ativo")   # desmarcada = loja some do site
 iCPar = achar(ct_h, "Parceira", "Loja Parceira")   # contratante: preços vêm do painel, não da planilha
-contato_por_loja = {}
+contato_por_loja, CONC_DESCONHECIDO = {}, []
 for r in ct_rows[1:]:
     if len(r) <= iNome: continue
     nome = r[iNome].strip()
@@ -276,6 +276,9 @@ for r in ct_rows[1:]:
     if not re.match(r"https?://", maps or ""): maps = None
     tel = re.sub(r"^telefone[:\s]*", "", r[iTel] if 0 <= iTel < len(r) else "", flags=re.I).strip() or None
     concs = [r[ic].strip() for ic in (iC1, iC2) if 0 <= ic < len(r) and r[ic].strip() in VALID]
+    for ic in (iC1, iC2):                                 # concurso digitado errado = loja some daquele concurso
+        v = r[ic].strip() if 0 <= ic < len(r) else ""
+        if v.strip("-–— ") and v not in VALID: CONC_DESCONHECIDO.append((nome, v))   # "-" = vazio
     contato_por_loja[nome] = {"telefone": tel, "instagram": ig, "link_maps": maps, "concursos": concs,
                               "ativo": sim(r[iCAtv]) if 0 <= iCAtv < len(r) else True,
                               "parceira": 0 <= iCPar < len(r) and sim(r[iCPar])}
@@ -444,6 +447,10 @@ if not sem_catalogo: print("    nenhum 🎉")
 print(f"\n  DIVERGÊNCIAS DE NOME (item vendido online, sem produto no catálogo):")
 for ch in online_sem_match[:30]: print("    -", ch)
 if not online_sem_match: print("    nenhuma 🎉")
+
+print(f"\n  CONCURSOS DESCONHECIDOS NA ABA CONTATOS ({len(CONC_DESCONHECIDO)}) — confira o nome exato na aba Concursos:")
+for loja, c in CONC_DESCONHECIDO: print(f"    - {loja}: '{c}'")
+if not CONC_DESCONHECIDO: print("    nenhum 🎉")
 
 print(f"\n  DESCARTES ({len(descartes)}):")
 for motivo, det in descartes[:40]: print("    -", motivo, "->", det)

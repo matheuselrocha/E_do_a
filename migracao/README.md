@@ -9,6 +9,9 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
 - `03_rls.sql` — leitura pública (anon) das tabelas de catálogo. Rode 1x.
 - `04_fase0.sql` — chaves únicas (upsert com IDs estáveis), `lojas.parceira`, `precos.updated_at`
   automático e histórico de preços (`precos_historico`). Rode 1x.
+- `05_painel.sql` — painel das lojas parceiras: `loja_usuarios` (conta → loja), `minha_loja()`,
+  leitura do catálogo p/ usuário logado e **RLS de escrita em `precos`** (só a própria loja parceira,
+  só itens dos concursos que ela atende, só a coluna `preco`). Rode 1x.
 - `migrate_supabase.py` — o importador (lê a planilha ao vivo e **sincroniza**: atualiza pelo nome,
   mantendo os IDs, e remove só o que saiu da planilha).
 - `importar.sh` — atalho para rodar o importador (carrega a chave do `.env`).
@@ -43,6 +46,20 @@ por tabela, itens por concurso, divergências e descartes). **Renomear** um item
 - **Concursos** → lista de concursos importados (`Status de Ativação` → `concursos.ativo`).
 
 Toda mudança de preço (importação ou painel) fica em `precos_historico` (só leitura interna).
+
+## Painel das lojas (`painel.html`)
+Contas são criadas **só pelo admin** (cadastro público do Supabase desligado):
+1. Supabase → Authentication → Users → **Add user** (e-mail + senha, marcar *Auto Confirm User*).
+2. SQL Editor — ligar a conta à loja (a loja precisa estar com **Parceira** marcada na aba Contatos):
+   ```sql
+   insert into loja_usuarios (user_id, loja_id)
+   select u.id, l.id from auth.users u, lojas l
+    where u.email = 'email@da.loja' and l.nome = 'Nome exato da loja'
+   on conflict (user_id) do update set loja_id = excluded.loja_id;
+   ```
+3. A loja entra em `https://enxovaldoaprovado.com.br/painel.html` e edita os preços dos itens
+   dos concursos que atende (Concurso (1)/(2) na aba Contatos). Toda mudança vai pro `precos_historico`
+   com `origem = 'painel'`.
 
 ## Segurança
 A `service_role` key ignora o RLS (acesso total). Ela fica **só** no `.env` local

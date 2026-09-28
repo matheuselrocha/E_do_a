@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel da Loja · Enxoval do Aprovado</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#22291A">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EFEEE8; --card:#fff; --ink:#16180F; --ink2:#4B5054; --ink3:#9A9A90;
+  --rule:#DCDACF; --rule2:#ECEBE3; --fogo:#E4670E; --fogo-d:#B44F07; --feito:#6B8A46;
+  --topo:#22291A; --topo2:#2E3626; --erro:#B3261E;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:Barlow,system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input{font:inherit}
+.num{font-family:"Barlow Semi Condensed",Barlow,sans-serif;font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+
+/* topo */
+.topo{position:sticky;top:0;z-index:20;color:#f3f3ee;background:linear-gradient(180deg,var(--topo2),var(--topo));padding:calc(12px + env(safe-area-inset-top)) 16px 12px;box-shadow:0 6px 18px -12px rgba(0,0,0,.5)}
+.topo .in{max-width:820px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.marca{display:flex;align-items:center;gap:9px;min-width:0}
+.marca img{height:30px;width:auto;flex:none}
+.marca .mk{font-family:Archivo,system-ui,sans-serif;font-weight:800;font-size:15px;line-height:1;text-transform:uppercase;letter-spacing:-.01em}
+.marca .mk small{display:block;font-size:9.5px;letter-spacing:.14em;color:#B9BCA9;margin-top:3px}
+.loja{margin-left:auto;text-align:right;min-width:0}
+.loja b{display:block;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.loja span{font-size:11px;color:#B9BCA9;letter-spacing:.06em;text-transform:uppercase}
+.sair{flex:none;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#F3F1EA;border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+.sair:hover{background:rgba(255,255,255,.16)}
+
+main{max-width:820px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
+
+/* cartões de login */
+.cartao{max-width:400px;margin:40px auto 0;background:var(--card);border-radius:16px;box-shadow:0 20px 50px -24px rgba(0,0,0,.35);overflow:hidden}
+.cartao .cab{padding:22px 22px 16px;border-bottom:1px solid var(--rule2)}
+.cartao h1{font-family:Archivo,system-ui,sans-serif;font-size:20px;font-weight:800;margin:0 0 4px;letter-spacing:-.01em}
+.cartao p{margin:0;color:var(--ink2);font-size:14px}
+.cartao form{padding:18px 22px 22px;display:flex;flex-direction:column;gap:12px}
+.campo span{display:block;font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:4px}
+.campo input{width:100%;min-height:46px;border:1px solid var(--rule);border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}
+.campo input:focus{outline:2px solid var(--fogo);outline-offset:0;border-color:var(--fogo)}
+.btn{min-height:46px;border:0;border-radius:10px;background:var(--ink);color:#f3f3ee;font-weight:700;cursor:pointer;padding:10px 16px}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.fogo{background:var(--fogo)}
+.btn.fogo:hover:not(:disabled){background:var(--fogo-d)}
+.btn.ghost{background:transparent;color:var(--ink2);border:1px solid var(--rule)}
+.link{background:none;border:0;color:var(--ink2);text-decoration:underline;cursor:pointer;padding:4px;font-size:14px;align-self:center}
+.msg{font-size:14px;border-radius:9px;padding:9px 11px;margin:0}
+.msg.erro{background:#FCEDEC;color:var(--erro)}
+.msg.ok{background:#EEF3E7;color:#3F5A24}
+
+/* painel */
+.resumo{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:4px 2px 14px}
+.resumo h1{font-family:Archivo,system-ui,sans-serif;font-size:20px;font-weight:800;margin:0;letter-spacing:-.01em}
+.resumo .cont{color:var(--ink2);font-size:14px}
+.ajuda{font-size:14px;color:var(--ink2);margin:0 2px 14px}
+.concs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.concs button{border:1px solid var(--rule);background:var(--card);border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--ink2);cursor:pointer}
+.concs button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#f3f3ee}
+.busca{width:100%;min-height:44px;border:1px solid var(--rule);border-radius:10px;padding:9px 12px;background:#fff;margin-bottom:14px}
+.busca:focus{outline:2px solid var(--fogo);border-color:var(--fogo)}
+h2.cat{font-family:Archivo,system-ui,sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);margin:18px 2px 8px;display:flex;gap:8px}
+h2.cat .n{color:var(--fogo)}
+.lista{background:var(--card);border:1px solid var(--rule);border-radius:12px;overflow:hidden}
+.it{display:flex;align-items:center;gap:12px;padding:11px 12px;border-top:1px solid var(--rule2)}
+.it:first-child{border-top:0}
+.it.alterado{background:#FFF6EE}
+.it.invalido{background:#FCEDEC}
+.it img{width:44px;height:44px;object-fit:contain;border-radius:8px;background:#F6F5F0;flex:none}
+.it .ph{width:44px;height:44px;border-radius:8px;background:#F6F5F0;flex:none}
+.it .meio{flex:1;min-width:0}
+.it .nome{font-weight:600;font-size:15px;line-height:1.25}
+.it .ref{font-size:12.5px;color:var(--ink3);margin-top:2px}
+.it .ref b{color:var(--ink2);font-weight:600;white-space:nowrap}
+.it .ref span{white-space:nowrap}
+.it .ref .mais{color:var(--feito);font-weight:600}
+.it .ref .menos{color:var(--fogo-d);font-weight:600}
+.preco{flex:none;display:flex;align-items:center;border:1px solid var(--rule);border-radius:9px;background:#fff;height:42px;width:112px;padding-left:10px}
+.preco:focus-within{outline:2px solid var(--fogo);border-color:var(--fogo)}
+.preco span{color:var(--ink3);font-size:14px;margin-right:4px}
+.preco input{border:0;outline:0;width:100%;height:100%;background:transparent;font-size:16px;font-weight:600;padding-right:8px;text-align:right;color:var(--ink)}
+.preco input::placeholder{color:var(--ink3);font-weight:400;font-size:13px}
+.vazio{text-align:center;color:var(--ink2);padding:40px 16px}
+
+/* barra de salvar */
+.barra{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--rule);box-shadow:0 -10px 30px -18px rgba(0,0,0,.4);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.barra .in{max-width:820px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.barra .txt{flex:1;font-size:14px;color:var(--ink2)}
+.barra .txt b{color:var(--ink)}
+.barra .btn{min-height:42px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:40;max-width:calc(100% - 32px);width:max-content;background:var(--ink);color:#f3f3ee;font-size:14px;padding:10px 14px;border-radius:10px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5)}
+.toast.erro{background:var(--erro)}
+
+/* telas estreitas (≤400px): cabeçalho enxuto e campo de preço menor, pra sobrar espaço pro nome */
+@media (max-width:400px){
+  .topo .in{gap:8px}
+  .marca .mk small,.loja span{display:none}
+  .marca img{height:26px}
+  .loja b{font-size:13px;max-width:40vw}
+  .sair{padding:5px 10px}
+  main{padding-left:10px;padding-right:10px}
+  .it{gap:9px;padding:10px}
+  .it img,.it .ph{width:36px;height:36px}
+  .preco{width:92px;padding-left:8px}
+  .barra .btn{padding:8px 12px}
+}
+@media (min-width:880px){
+  main{padding-top:24px}
+  .it{padding:12px 16px}
+  .preco{width:130px}
+}
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="in">
+    <div class="marca"><img src="logo.png" alt=""><span class="mk">Enxoval<small>Painel da loja</small></span></div>
+    <div class="loja" id="hLoja" hidden><b id="hLojaNome"></b><span>Loja parceira</span></div>
+    <button class="sair" id="btnSair" hidden>Sair</button>
+  </div>
+</header>
+<main id="tela"><p class="vazio">Carregando…</p></main>
+<div class="barra" id="barra" hidden>
+  <div class="in">
+    <div class="txt" id="barraTxt"></div>
+    <button class="btn ghost" id="btnDescartar">Descartar</button>
+    <button class="btn fogo" id="btnSalvar">Salvar</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* =========================================================================
+   Painel da loja parceira — login + edição dos PRÓPRIOS preços.
+   A segurança está no banco (RLS em migracao/05_painel.sql): esta página só
+   mostra/envia; mesmo adulterada, não consegue gravar preço de outra loja.
+   ========================================================================= */
+const SUPA_URL = "https://zjvxatpdajxdtpmifkxg.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqdnhhdHBkYWp4ZHRwbWlma3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MTM5ODYsImV4cCI6MjEwNTA4OTk4Nn0.Y23MtmFlyQrk1sL9FSmem5SXPSUAQX2l__PxHNKrvnU";
+// storageKey próprio: a sessão do painel não se mistura com o cliente do site (formulário de lead)
+const sb = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+  auth: { storageKey: "enxoval-painel-auth", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const norm = s => String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+const brl = v => "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+const campo = v => v == null ? "" : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2, useGrouping: false });
+// "1.234,50" / "1234.5" / "R$ 180" -> número; "" -> null; inválido -> NaN
+function lerPreco(txt){
+  let t = String(txt||"").replace(/[^\d,.]/g,"");
+  if(!t) return null;
+  if(t.includes(",")) t = t.replace(/\./g,"").replace(",", ".");
+  const n = Number(t);
+  return (isFinite(n) && n > 0 && n < 100000) ? Math.round(n*100)/100 : NaN;
+}
+const dataBR = iso => iso ? new Date(iso).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit" }) : "";
+
+// ---- estado ----
+const P = {
+  loja: null,          // { id, nome }
+  concursos: [],       // [{ id, nome }]
+  itens: [],           // [{ id, nome, cat, foto, conc, meu:{id,preco,updated_at}|null, menor:number|null, nOutras }]
+  conc: null,          // concurso selecionado
+  busca: "",
+  edits: new Map()     // item_id -> texto digitado (só o que difere do salvo)
+};
+
+function aviso(txt, erro){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const t = document.createElement("div"); t.className = "toast" + (erro?" erro":""); t.setAttribute("role","status"); t.textContent = txt;
+  document.body.appendChild(t); setTimeout(()=>t.remove(), 4500);
+}
+function cabecalho(logado){
+  $("#hLoja").hidden = !logado || !P.loja; $("#btnSair").hidden = !logado;
+  if(P.loja) $("#hLojaNome").textContent = P.loja.nome;
+}
+
+/* ---------------- telas de acesso ---------------- */
+function telaLogin(msg){
+  cabecalho(false); $("#barra").hidden = true;
+  $("#tela").innerHTML = `
+    <div class="cartao">
+      <div class="cab"><h1>Entrar</h1><p>Acesso exclusivo para lojas parceiras do Enxoval do Aprovado.</p></div>
+      <form id="fLogin" novalidate>
+        ${msg ? `<p class="msg ${msg.tipo}">${esc(msg.txt)}</p>` : ""}
+        <label class="campo"><span>E-mail</span><input name="email" type="email" autocomplete="username" inputmode="email" required></label>
+        <label class="campo"><span>Senha</span><input name="senha" type="password" autocomplete="current-password" required></label>
+        <button class="btn fogo" type="submit">Entrar</button>
+        <button class="link" type="button" id="lnkEsqueci">Esqueci minha senha</button>
+      </form>
+    </div>`;
+  $("#fLogin").addEventListener("submit", async ev=>{
+    ev.preventDefault();
+    const f = ev.target, b = f.querySelector("button[type=submit]");
+    b.disabled = true; b.textContent = "Entrando…";
+    const { error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.senha.value });
+    if(error){ telaLogin({ tipo:"erro", txt: /invalid/i.test(error.message) ? "E-mail ou senha incorretos." : "Não foi possível entrar agora. Tente de novo." }); return; }
+    iniciar();
+  });
+  $("#lnkEsqueci").addEventListener("click", telaEsqueci);
+  requestAnimationFrame(()=>{ const i=$("#fLogin input"); if(i) i.focus(); });
+}
+function telaEsqueci(){
+  $("#tela").innerHTML = `
+    <div class="cartao">
+      <div class="cab"><h1>Recuperar senha</h1><p>Enviamos um link para você criar uma senha nova.</p></div>
+      <form id="fEsq" novalidate>
+        <label class="campo"><span>E-mail da conta</span><input name="email" type="email" autocomplete="username" inputmode="email" required></label>
+        <button class="btn fogo" type="submit">Enviar link</button>
+        <button class="link" type="button" id="lnkVoltar">Voltar</button>
+      </form>
+    </div>`;
+  $("#fEsq").addEventListener("submit", async ev=>{
+    ev.preventDefault();
+    const b = ev.target.querySelector("button[type=submit]"); b.disabled = true; b.textContent = "Enviando…";
+    await sb.auth.resetPasswordForEmail(ev.target.email.value.trim(), { redirectTo: location.origin + location.pathname });
+    // mesma resposta com ou sem conta: não revela quais e-mails existem
+    telaLogin({ tipo:"ok", txt:"Se esse e-mail tiver conta, você vai receber o link em alguns minutos." });
+  });
+  $("#lnkVoltar").addEventListener("click", ()=>telaLogin());
+}
+function telaNovaSenha(){
+  cabecalho(true); $("#barra").hidden = true;
+  $("#tela").innerHTML = `
+    <div class="cartao">
+      <div class="cab"><h1>Nova senha</h1><p>Mínimo de 8 caracteres.</p></div>
+      <form id="fNova" novalidate>
+        <p class="msg erro" id="novaErro" hidden></p>
+        <label class="campo"><span>Nova senha</span><input name="s1" type="password" autocomplete="new-password" minlength="8" required></label>
+        <label class="campo"><span>Repita a senha</span><input name="s2" type="password" autocomplete="new-password" minlength="8" required></label>
+        <button class="btn fogo" type="submit">Salvar senha</button>
+      </form>
+    </div>`;
+  $("#fNova").addEventListener("submit", async ev=>{
+    ev.preventDefault();
+    const f = ev.target, e = $("#novaErro");
+    if(f.s1.value.length < 8){ e.textContent = "A senha precisa ter pelo menos 8 caracteres."; e.hidden = false; return; }
+    if(f.s1.value !== f.s2.value){ e.textContent = "As senhas não são iguais."; e.hidden = false; return; }
+    const { error } = await sb.auth.updateUser({ password: f.s1.value });
+    if(error){ e.textContent = "Não foi possível salvar a senha. Peça um novo link."; e.hidden = false; return; }
+    aviso("Senha alterada."); iniciar();
+  });
+}
+function telaAviso(titulo, txt){
+  cabecalho(true); $("#barra").hidden = true;
+  $("#tela").innerHTML = `<div class="cartao"><div class="cab"><h1>${esc(titulo)}</h1><p>${esc(txt)}</p></div></div>`;
+}
+
+/* ---------------- dados ---------------- */
+async function carregarDados(){
+  const { data: vinc, error: e1 } = await sb.from("loja_usuarios").select("loja_id, lojas(nome, parceira)").maybeSingle();
+  if(e1) throw e1;
+  if(!vinc) return "sem_loja";
+  if(!vinc.lojas || !vinc.lojas.parceira) return "nao_parceira";
+  P.loja = { id: vinc.loja_id, nome: vinc.lojas.nome };
+
+  const { data: lc, error: e2 } = await sb.from("loja_concurso").select("concursos(id, nome)").eq("loja_id", P.loja.id);
+  if(e2) throw e2;
+  P.concursos = lc.map(r=>r.concursos).filter(Boolean).sort((a,b)=>a.nome.localeCompare(b.nome));
+  if(!P.concursos.length) return "sem_concurso";
+
+  const { data: its, error: e3 } = await sb.from("itens_enxoval")
+    .select("id, nome_padronizado, categoria, link_foto, concurso_id, precos(id, preco, loja_id, updated_at, lojas(ativo))")
+    .in("concurso_id", P.concursos.map(c=>c.id));
+  if(e3) throw e3;
+  P.itens = its.map(it=>{
+    const meu = (it.precos||[]).find(p=>p.loja_id===P.loja.id) || null;
+    const outros = (it.precos||[]).filter(p=>p.loja_id!==P.loja.id && p.preco!=null && !(p.lojas && p.lojas.ativo===false)).map(p=>Number(p.preco));
+    return { id: it.id, nome: it.nome_padronizado, cat: it.categoria || "Outros", foto: it.link_foto || "", conc: it.concurso_id,
+             meu: meu && meu.preco!=null ? { id: meu.id, preco: Number(meu.preco), updated_at: meu.updated_at } : null,
+             menor: outros.length ? Math.min(...outros) : null, nOutras: outros.length };
+  }).sort((a,b)=> a.cat.localeCompare(b.cat) || a.nome.localeCompare(b.nome));
+  if(!P.conc || !P.concursos.some(c=>c.id===P.conc)) P.conc = P.concursos[0].id;
+  return "ok";
+}
+
+/* ---------------- painel ---------------- */
+function refHTML(it){
+  if(it.menor == null) return `Nenhuma outra loja com preço no site`;
+  const p = lerPreco(P.edits.has(it.id) ? P.edits.get(it.id) : campo(it.meu?.preco));
+  let cmp = "";
+  if(p && !isNaN(p)) cmp = p < it.menor ? ` · <span class="mais">você é a mais barata</span>` : p > it.menor ? ` · <span class="menos">${brl(p - it.menor)} acima</span>` : ` · <span class="mais">empatado</span>`;
+  return `Menor no site: <b class="num">${brl(it.menor)}</b>${cmp}`;
+}
+function itemHTML(it){
+  const val = P.edits.has(it.id) ? P.edits.get(it.id) : campo(it.meu?.preco);
+  const alt = P.edits.has(it.id), inv = alt && Number.isNaN(lerPreco(val));
+  return `<div class="it ${alt?"alterado":""} ${inv?"invalido":""}" data-id="${esc(it.id)}">
+    ${it.foto ? `<img src="${esc(it.foto)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph'}))">` : `<div class="ph"></div>`}
+    <div class="meio">
+      <div class="nome">${esc(it.nome)}</div>
+      <div class="ref">${refHTML(it)}</div>
+      ${it.meu ? `<div class="ref quando" ${alt?"hidden":""}>Seu preço atualizado em ${dataBR(it.meu.updated_at)}</div>` : ""}
+    </div>
+    <label class="preco" title="Deixe vazio se a loja não vende este item"><span>R$</span>
+      <input type="text" inputmode="decimal" value="${esc(val)}" placeholder="não vendo" aria-label="Seu preço para ${esc(it.nome)}"></label>
+  </div>`;
+}
+function telaPainel(){
+  cabecalho(true);
+  const doConc = P.itens.filter(it=>it.conc===P.conc);
+  const comPreco = doConc.filter(it=>it.meu).length;
+  const q = norm(P.busca);
+  const vis = q ? doConc.filter(it=>norm(it.nome+" "+it.cat).includes(q)) : doConc;
+  const porCat = new Map(); for(const it of vis){ if(!porCat.has(it.cat)) porCat.set(it.cat, []); porCat.get(it.cat).push(it); }
+  const nomeConc = P.concursos.find(c=>c.id===P.conc)?.nome || "";
+  let h = `<div class="resumo"><h1>Seus preços</h1><span class="cont num">${comPreco} de ${doConc.length} itens com preço · ${esc(nomeConc)}</span></div>
+    <p class="ajuda">Digite o preço à vista de cada item e toque em <b>Salvar</b>. Deixe vazio o que a loja não vende. O preço aparece no site para os candidatos.</p>`;
+  if(P.concursos.length > 1)
+    h += `<div class="concs" role="group" aria-label="Concurso">${P.concursos.map(c=>`<button data-conc="${esc(c.id)}" aria-pressed="${c.id===P.conc}">${esc(c.nome)}</button>`).join("")}</div>`;
+  h += `<input class="busca" id="busca" type="search" placeholder="Buscar item" value="${esc(P.busca)}" aria-label="Buscar item">`;
+  if(!vis.length) h += `<p class="vazio">Nenhum item encontrado.</p>`;
+  for(const [cat, lista] of porCat)
+    h += `<h2 class="cat">${esc(cat)} <span class="n">${lista.length}</span></h2><div class="lista">${lista.map(itemHTML).join("")}</div>`;
+  $("#tela").innerHTML = h;
+  atualizarBarra();
+}
+function atualizarBarra(){
+  const n = P.edits.size, inval = [...P.edits.values()].filter(v=>Number.isNaN(lerPreco(v))).length;
+  $("#barra").hidden = n === 0;
+  $("#barraTxt").innerHTML = inval ? `<b>${inval}</b> preço${inval>1?"s":""} inválido${inval>1?"s":""}` : `<b>${n}</b> alteraç${n>1?"ões":"ão"} não salva${n>1?"s":""}`;
+  $("#btnSalvar").disabled = inval > 0;
+}
+
+// edição: guarda só o que difere do valor salvo
+document.addEventListener("input", ev=>{
+  if(ev.target.id === "busca"){ P.busca = ev.target.value; const pos = ev.target.selectionStart; telaPainel(); const b=$("#busca"); b.focus(); b.setSelectionRange(pos,pos); return; }
+  const row = ev.target.closest(".it"); if(!row) return;
+  const it = P.itens.find(x=>x.id===row.dataset.id); if(!it) return;
+  const novo = lerPreco(ev.target.value), atual = it.meu ? it.meu.preco : null;
+  if(novo === atual || (ev.target.value.trim()==="" && atual==null)) P.edits.delete(it.id); else P.edits.set(it.id, ev.target.value);
+  const alt = P.edits.has(it.id);
+  row.classList.toggle("alterado", alt);
+  row.classList.toggle("invalido", alt && Number.isNaN(lerPreco(ev.target.value)));
+  row.querySelector(".ref").innerHTML = refHTML(it);
+  const q = row.querySelector(".quando"); if(q) q.hidden = alt;
+  atualizarBarra();
+});
+document.addEventListener("click", ev=>{
+  const c = ev.target.closest(".concs button");
+  if(c){ P.conc = c.dataset.conc; telaPainel(); window.scrollTo(0,0); }
+});
+$("#btnDescartar").addEventListener("click", ()=>{ P.edits.clear(); telaPainel(); });
+$("#btnSalvar").addEventListener("click", salvar);
+$("#btnSair").addEventListener("click", async ()=>{
+  if(P.edits.size && !confirm("Você tem alterações não salvas. Sair mesmo assim?")) return;
+  P.edits.clear(); await sb.auth.signOut(); P.loja = null; telaLogin();
+});
+window.addEventListener("beforeunload", ev=>{ if(P.edits.size){ ev.preventDefault(); ev.returnValue = ""; } });
+
+async function salvar(){
+  const b = $("#btnSalvar"); b.disabled = true; b.textContent = "Salvando…";
+  const ops = [];
+  for(const [id, txt] of P.edits){
+    const it = P.itens.find(x=>x.id===id); if(!it) continue;
+    const v = lerPreco(txt);
+    if(v === null && it.meu)        ops.push(sb.from("precos").delete().eq("id", it.meu.id).select("id"));
+    else if(v !== null && it.meu)   ops.push(sb.from("precos").update({ preco: v }).eq("id", it.meu.id).select("id"));
+    else if(v !== null)             ops.push(sb.from("precos").insert({ item_id: id, loja_id: P.loja.id, preco: v }).select("id"));
+  }
+  const res = await Promise.all(ops);
+  // escrita bloqueada pelo RLS volta sem erro e sem linha → também conta como falha
+  const falhas = res.filter(r => r.error || (r.data && r.data.length === 0)).length;
+  b.textContent = "Salvar";
+  if(falhas) aviso(`${falhas} preço${falhas>1?"s":""} não foi salvo${falhas>1?"s":""}. Tente de novo.`, true);
+  else aviso(`${ops.length} preço${ops.length>1?"s":""} salvo${ops.length>1?"s":""}.`);
+  P.edits.clear();
+  await recarregar();
+}
+
+/* ---------------- ciclo ---------------- */
+async function recarregar(){
+  try{
+    const st = await carregarDados();
+    if(recuperando) return telaNovaSenha();          // link de recuperação chegou durante o carregamento
+    if(st === "sem_loja")      return telaAviso("Conta sem loja", "Esta conta ainda não está ligada a uma loja. Fale com a equipe do Enxoval do Aprovado.");
+    if(st === "nao_parceira")  return telaAviso("Parceria inativa", "A parceria desta loja não está ativa no momento. Fale com a equipe do Enxoval do Aprovado.");
+    if(st === "sem_concurso")  return telaAviso("Nenhum concurso", "Sua loja ainda não está ligada a nenhum concurso. Fale com a equipe do Enxoval do Aprovado.");
+    telaPainel();
+  }catch(e){
+    console.warn(e);
+    telaAviso("Não foi possível carregar", "Verifique a conexão e recarregue a página.");
+  }
+}
+let recuperando = false;
+async function iniciar(){
+  if(recuperando) return telaNovaSenha();
+  const { data } = await sb.auth.getSession();
+  if(!data.session) return telaLogin();
+  await recarregar();
+}
+sb.auth.onAuthStateChange(ev=>{
+  if(ev === "PASSWORD_RECOVERY"){ recuperando = true; telaNovaSenha(); }
+  if(ev === "USER_UPDATED") recuperando = false;
+});
+iniciar();
+</script>
+</body>
+</html>
