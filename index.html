@@ -241,6 +241,23 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .ferbtn:active{background:var(--bg)}
 .ferbtn.forte{background:var(--ink);border-color:var(--ink);color:#f3f3ee}
 .ferbtn.ghost{color:var(--ink2)}
+.ferbtn.inicial{flex-basis:100%;background:var(--fogo);border-color:var(--fogo);color:#fff;font-size:13.5px}
+.ferbtn.inicial .sm{display:block;font-size:11px;font-weight:500;opacity:.88;margin-top:2px}
+.ferbtn.inicial:active{background:var(--fogo-d)}
+.ferbtn.umaloja{flex-basis:100%}
+/* pop-up "Tudo numa loja só": reaproveita o fundo .lead-back */
+.lsel{margin:auto;width:100%;max-width:432px;background:var(--card);border-radius:18px;overflow:hidden;box-shadow:0 30px 70px -20px rgba(0,0,0,.65)}
+.lsel-top{display:flex;align-items:flex-start;gap:12px;padding:18px 18px 12px;border-bottom:1px solid var(--rule2)}
+.lsel-top h2{font-family:Archivo,system-ui,sans-serif;font-size:18px;font-weight:800;margin:0 0 4px;color:var(--ink)}
+.lsel-top p{font-size:12.5px;line-height:1.45;color:var(--ink2);margin:0}
+.lsel-x{flex:none;margin-left:auto;width:34px;height:34px;border-radius:50%;border:1px solid var(--rule);background:var(--card);color:var(--ink2);font-size:18px;line-height:1;cursor:pointer}
+.lsel-l{list-style:none;margin:0;padding:6px 0}
+.lsel-op{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:10px 18px;border:0;background:none;text-align:left;cursor:pointer;color:var(--ink);font:inherit}
+.lsel-op:hover,.lsel-op:focus-visible{background:var(--bg);outline:none}
+.lsel-op .n{flex:1;min-width:0;font-weight:600;font-size:14px}
+.lsel-op .c{display:block;font-weight:400;font-size:11.5px;color:var(--ink3);margin-top:2px}
+.lsel-op .p{flex:none;font-weight:700;font-size:13.5px}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:70;max-width:calc(100% - 32px);width:max-content;background:var(--ink);color:#f3f3ee;font-size:13px;line-height:1.4;padding:10px 14px;border-radius:10px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5)}
 .ferbtn:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
 
 /* ---------- abas ---------- */
@@ -516,13 +533,20 @@ const SNAPSHOT = {"blocos":{"enxoval":{"lojas":["Demir","Cezar","Brito","Forte",
 const IMG_ONLINE = {"https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BI00FvQpWCbScaMQA6v85YdG6oi9CfdeXhNLbb77H7Hn8hmH7UqpOGF%2FZj2jLOhRiAZ8dyNSBR53n3NWDdjCUW%2BPzjpio8jzzT6GlQ8B9OKzpe%2FphjkR3E07GCq%2BOCxaxb7R029IBIimjk%2BAzqaGCvBVWfejOQAYQpmHTCcqMX3L3EMSr454ZwoBuhHuFD%2FIc6Fc7YD2%2FzBgQ%2F7S":"https://http2.mlstatic.com/D_NQ_NP_2X_652520-MLB112709943731_062026-F-shaver-kemei-profissional-barbeador-eletrico-original-km1102.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BB%2FTckfCjqQQJxNGoYY9EfUX552cG99Y0F7dC%2BrNRLtlk%2Ff5rt7GSBOFjzR%2B0ZeparzL%2FIcgINGrC0xSCsb5y6mHOtBS4dFYCB4wUZiJvXs820PmuL77fQmC9m56rEXMu37V0EiSYQqHPxIOKkFV4qa8WELdTaYDBuOzhw1QrLtGvKD301XdIzbPX7GqGhR0eguC6g%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_780145-MLB96634646605_102025-F-bermuda-termica-anti-assadura-esportiva-sem-costura-keeper.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BAn2sxABitwwUjimgZ2AU0kkxNGbCuBZGXa9NxkTJsAnq%2FyNAXuhWOKsdxdrEBiB4JzMjoWfbbdUlMV4oRamnH5Q7tFp7fclZlEjhG1NntgffGXip%2BQH5os6QG4%2B47a1Kv1kjI5uMjQiKMK5mrAy0wa6p%2FB8PVYnGAn102UpjAckSS6m7%2BrJInsms4jEjlRNBs96hw%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_813672-MLB110289699780_052026-F-shorts-feminino-para-corrida-com-bolsos-promoco.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BDoLrXO73391NFixWVlaHdexUTCxU1eK3CeVrGyhWyFfJbiqrNtjQrzQaxk282nvS0FRbw5PrC%2BFh2M032eZEMd%2FGIx8Tl92Gdt%2ByFVPPLjKi%2FRs1h4rkbdD3q4538TbIhzHiC5mtb25uWKrvZSkX1FVLJIp9iNKyeNquY1ZzeWIxNf6P91fOz8SlwTEQ%2FFCk1h27Q%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_881918-MLB95941436779_102025-F-bermuda-de-compresso-masculina-com-bolso-corrida.webp","https://s.shopee.com.br/2LXaOCUfb4":"https://down-br.img.susercontent.com/file/br-11134207-820m2-mr8wxkztqhhh49@resize_w900_nl.webp","https://s.shopee.com.br/1gHtb5hqyK":"https://down-br.img.susercontent.com/file/sg-11134201-22110-nz610ieopnjve7@resize_w900_nl.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BOgk860zjs24pnIVN6sujAf1mYGyGJVvS8DqAS%2BliCv7pbz52IBj4INEBVV%2BBQ9lE68a8Ls0xtjC0EQpFTAcTLcKMcbWKrglisceQWZm3FmlDzbbHAO%2FJsVUjfvFjEJgcwQCWUkLq44Y7x27Xrou%2FLRFC2m9ofUb4klRvGI3hcvzmnOke8oJ1Z28yQ929yPq6J2ORw%3D%3D":"https://http2.mlstatic.com/D_NQ_NP_2X_923265-MLB52649295680_112022-F-kit-3-bermuda-termica-esportiva-shorts-compresso-academia.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BHRMgoobvPBmYaTL2oq4jifK2EKtTfPu549EL6SvnposGH6WqzHSIktL2LM9s5i%2F7pMnSxfLHnutwzQgXaHMdVlyomLwYo6M1NggSQmLhDgeSSYcfWqCxGmajGiXT15GB9nIuhcaBsupqJ1cSJKf4vTnphn8HjAiEJl4%2F1YwjS4pyjL1zrBG7XT0dcm14NotSq8oYw%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_723707-MLB84372837212_052025-F-calca-tatica-rip-stop-preta-tamanhos-grandes-ate-62.webp","https://s.shopee.com.br/904vV00uKi":"https://down-br.img.susercontent.com/file/br-11134207-7r98o-m79ijb05agcqf2.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BInjhNvg%2FUmYWHSDsqIdvuOfcI4Tnr0pqCMzwi%2FKd7ShgZFIw96NLijQVZKhixAMztXXZQalJYKLFiYfmt3CZ2HFsAUXaVDDxeTX9cEsMojkhAs7B7v9q8wMMwJIuHg1BAAFbA20NjzstInz%2FuK0lc604WCXdOvzuSyv6030cliy6o%2BFMndZ%2FgpgZ%2Fm2Fj0Qxf%2F06g%3D%3D":"https://http2.mlstatic.com/D_NQ_NP_2X_729260-MLB112317318947_052026-F-coturno-manobra-extra-leve-atalaia-original.webp","https://magazineluiza.onelink.me/589508454/zwchgvkw":"https://m.magazineluiza.com.br/a-static/420x420/coturno-atalaia-bidensidade-ultraleve-original-sem-ziper-master/coturnosfardasepersonalizados/bd426c5c582511ef9fb14201ac18501b/12e6393254dfb7389a1ef1ef11ff374d.jpeg","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BIk7dJxSX63ejT0937FHPTU01HhLZ2VAOiWY%2F3gOvxsQiaXgMwpoUH2poCbaMTHng%2FDkukFuuKET1VBssL7GxH2t1e19EqV0Ht43dVjO8glMEZbm79C3Sx4qYeSZR3ZM0cCXcgiG7D3yy9vFz%2FJRbYPnVOxHSoeg4KhuplCxtyrJHxPWQeR5pwu7esSNu33wEoYRnA%3D%3D":"https://http2.mlstatic.com/D_NQ_NP_2X_636473-MLB91748504531_092025-F-coturno-atalaia-patriota-sem-ziper-original.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BPb2clM5ty%2BZptQWXk%2BLboTBosJqCTt38%2BgrR2vM5MSlMyTjdfpid8rS1TTOrqowbGEnEdka97bkmetg5XLEL2tkh91TBI8XboM6wG8swoily3zv2UCawX51WtU72HqGv8QIyf5fpxoIoKF3JYibgx1CP1gOGW4Ryrs1iryYNrVa%2BAd1PWUe79gMy5W7n8aDRMpCoQ%3D%3D":"https://http2.mlstatic.com/D_NQ_NP_2X_896358-MLB51233225563_082022-F-coturno-troller-atalaia-by-master-lona-preta-sem-ziper.webp","https://magazineluiza.onelink.me/589508454/jropogc9":"https://a-static.mlcdn.com.br/420x420/coturno-calfesa-extra-leve-sem-ziper-original-master/coturnosfardasepersonalizados/4eaddf94582311ef821d4201ac18501b/c9a96dec22a2ba4a91ba695c1b94c736.jpeg","https://s.shopee.com.br/6fh0ibPszg":"https://down-br.img.susercontent.com/file/br-11134207-820ls-mpa2306rwxdt83@resize_w900_nl.webp","https://s.shopee.com.br/30niLjPCcf":"https://product-data.raiadrogasil.io/images/3673911.webp","https://s.shopee.com.br/3g3P92XytV":"https://down-br.img.susercontent.com/file/br-11134207-820l8-ml99073ccsnaab@resize_w900_nl.webp","https://s.shopee.com.br/5AsCngOfar":"https://down-br.img.susercontent.com/file/sg-11134201-7rdyc-lyl9amkc138q7c@resize_w900_nl.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BJA0%2Ft0oLMcritgo3zAv9XkhoW2J5soH7BGWPtkVi57QZ%2Fbkavx87P4vQBtKPXsQSmIw1MBZHeOgEniIDwz4iQXzOgEU6qszluKPZmFlCSR8LPdSsgiVurlf7eahI%2BTqINgptJ7A2Na%2Ff56zzduA6opVJsAduqKKg8t%2FpqArsrzyUxXOY5IFaFlkmX0b%2F42oBqOcHpTUFyzlxRd4dw%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_771584-MLB69727500758_052023-F-kit-2-graxas-nugget-polidor-sapato-2-escovas-1-flanela-cera.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BCmnltSu2i4NFwXPOsvOVpFaJgbMbTiPGQO9XD04iRiiiyxywznOHnzCrdtu1TJUJBvttA0ylTrrDyGLed1oLbQy8qrmv8qgkt7HM8NYXjXseFEY1tDIldcbAAwbv6mmL3rS8%2FQaghAptXJ67Q1uil884Y1TsOLyj2SwcpbXGq%2BmZrUtOqCShdtYu913xHIHIihJ278UmS3AypesG4EFgDEUD9VvqOIuMD%2BboVGt#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_828075-MLB91927075378_092025-F.webp","https://s.shopee.com.br/1Lf3CbFQLA":"https://down-br.img.susercontent.com/file/br-11134207-7r98o-lqz2itfomh3h25@resize_w900_nl.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BD5c5ODbl2O48Jdhy%2FikcjxFPnnozu2YmzKN04U4Md%2FYq4M%2BpfcDhtI1tplzCdAcWIfUtwgw3uB9WuGHiD3I83N%2BS4x4rn0CydbRhA9Zpt%2B%2FTlI%2BVRTXJeyUYsAqQ7E5p4h1mnRMfX17RInXbLGxX5rqUTnsPbw2UhtorVaiJt9b%2Bw6m5ABmkOxrdhneqCjPgl3p%2FQ%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_778009-MLB85754013477_062025-F-mai-long-fila-tri-feminino-preto.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BOk0fXOaLghiQKS9TxM845pqM4i5ZmkdF2QcMD2M6lrAReyhvRaHB2866tEuYWsnL%2FNbbwvY1K%2BMgrF5xfk1N3jq54FU%2BgEOvDTzqJd6ZsTZZjcBIp5u661%2Fj1hTvamPrpcCFCApWqAbGX3CD%2BGQGv62221MgG9J6fIH3XAUmx%2F9czQLhPbsstMDFLVtg5PHCqYFnw%3D%3D":"https://http2.mlstatic.com/D_NQ_NP_2X_822664-MLB109446416495_032026-F-maio-macaquinho-poker-natacao-hidroginastica-aquatico-uv50.webp","https://www.centauro.com.br/macaquinho-de-hidroginastica-fila-twice-adulto-745542.html":"https://imgcentauro-a.akamaihd.net/1024x1024/7455421KA2.jpg","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BGiAxpxm3VM2kUcS2K4ccDtYkwbnC70Pm9bz5YF0ghxiJCHwsUB2OriTvSw3vEp8LjG0PTS2ytKktsPoTGMFMf8NlPuB5oChMVzPNrGvsBJExzugyoin9%2FT5%2BV62CbpJWxStS2U0zcuvWagUwUkVpBAut0SN07RZj4Wa4hWCC1T4gJwYchBzlPWhryv9dM64AfLHrA%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_635726-MLB75894927309_042024-F-meio-preto-poliamida-futebol-militar-uniforme-kit-5-pares.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BJF2YfwUJibXbgpe0bslLpUKnuRuU28%2BZhZznng7a34Z6iR%2BwlqRFn5Fi2IQuW6lvYcpn3bUm8yimKfrYmfgClTVcXzabalqaJwt6MHqDCpTnZ8l5Tvo9xy1QN728M8TeIHQZmIMmJ2g13NFo5cRJZNi63tt%2BNsY4UqbnnBKv0rDV4OhCT0rRpzSe06xxgyJEBKxKnRTrD9CZq9sNMSKf4iN0CFxn2Oob%2FNDekGCGGyB9I8B#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_848714-MLB76859292419_062024-F-kit-3-meias-masculina-34-de-compressao-moderada-510-mmhg.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BLDLM%2FkqEDj8gx%2FlpoYG%2Fm%2FErrTld9A3g7u30%2BnqLsdLYKcw3s1l%2BjUBv5u%2BXdJQJdbmYVsFgLlwMTTiSZG6THT%2B%2B0X1xBuBg510lEVGU0CYxE5cgh7Apgw3Fl1jqjrQHMEDGrnGUkT022sqzNpf5ICp79c7jSewBQx1r98oBpa2MDBma%2BuCOPc9rD6C%2BW9ocTD6VA%3D%3D":"https://http2.mlstatic.com/D_NQ_NP_2X_676515-MLB110385935167_042026-F-kit-12-meias-tatica-militar-reforco-coturno-inverno-termica.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BB2rTdecYUe84eEvI%2F5osDVMlgMjSMFwWNABf238vfC1nsWlo4Ds%2FVw9YRJpNTKGuI1rn64hh7clD8faYqgJoVRq7p1%2B7T1v%2BT8bTVALjumzpzyCL4FEnzDen0GMgh0zWGWJIN1w4VdCZrkFO3NVvmPhqD1%2FJhDKVHAKPdkxKRAm64%2B8a3ir73rHeNIv2VQQT6S2hrnLvHCe27AhqeUzvh2fpt%2BcdD%2B2VN66a886%2FWIPUTJc#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_951457-MLB115352037869_072026-F-kit-3-pares-meias-poliamida-esportiva-corrida-bike-academia.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BJNIeguTtsVkWfIKDAoll7FJjjvenVIz8NMsSGyJ83yIYJaJP7D9fcKpdKowFInLLJZSsgh0N%2BgR4EurrfocrY1RVyvmcbCMd4vHGcR1rz40VW3eVz%2FrFi1Jr5nOZ20%2BxkBDzI%2FtzJDKo4q5k0YHVo1a0uHWxtg5Zi3htaoiVtRUoGv5%2B2VE7QFAlRzIO%2BGLwZmvZA%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_960560-MLB113160686107_062026-F-kit-com-3-pares-meias-poliamida-corrida-crossfit-compresso.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BC7r2a4OcskEB2yhKQ8yS2%2FKplRPSBFMd2iEc5E%2FFGtm2gZMdR9TMv4u1IXcVKU45vhcOCUnEUmT43%2By0r7%2BAOBCYbQLpw77tLetSM4CVI5uGHwv5YTbgy7pa%2FpAMTOVQIMf4wtoL5elRSS%2FPQb5FoZnfF%2BIA0f%2BMswI36zuW9XwGtkqFYKbcEHx7MulnhQGXrtdx2St%2B4KH5KB%2BTQ%3D%3D":"https://http2.mlstatic.com/D_NQ_NP_2X_658923-MLB114939352120_082026-F-kit-6-pares-meias-poliamida-esportiva-corrida-bike-academia.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BJtXehDoMJ66CEDpPkUFByjxXn0Q48sMuHWsrD5FD%2F1FrdhWbmQpe2LHoJKIHPRiftKs9PRiUqFtgJ0CnzvyLyGe%2Bf7uh9Ilx04pj3iSv70ZyWtSacnBPW8GZRnfcQ375efgABlONZkG7BBbdP1sO0lJBtPvaCvTwlh1rQKG%2Fs6xYIB0b6JpLfUFziqUD2yZZPCw4gVcsXkPZeP7BqHVu8h2XMMuTjGfI0IRCg%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_607104-MLA110010540084_042026-F.webp","https://s.shopee.com.br/4LJ5wLKcny":"https://down-br.img.susercontent.com/file/br-11134207-81z1k-mi357fi7zo5e0d@resize_w900_nl.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BACWySosg%2BJ1qfTM4gcEIDPIotvblfM3aPDPLD%2BOUCaxpNvHYKmLRYMvaTQqPX2Chmo6t6KnjltbwndN5kC5hZELzK3d65UDoADNz%2B%2BrkdwNdDAKlpSZKjypa%2B52kTCbhS2Ez%2BCJul2qML65e8kCFdJnjGANOvKbCi9UXRA%2BDZO4l8HW%2B1G9xkCSGmEWvpxO3yCrcFdS0i5LONRJ35rr4AfmBa3OpeM473isXYdP%2B6qo6F4P#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_812590-MLB106393313934_022026-F-palmilha-em-gel-vellani-anatomica-macia-coturno-tenis.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BCyYSA3cjg4BJT465JBnXNzF1IIl1ToRobxToeL9W0EBND%2Fn4dEALrg6Y9hyvC3Cb0kX3wkhWfBZvwAFafcZiSEB9T630LW9OzCcogM%2BLxV9TUnunZXGXhWcWju%2FQ%2Fi8XH3GIgZrBZo77EpkXJxkKBELFE5EW5g8TLvgeL45tBkT6VgXg6onjd%2FRFYcN07cONmWVqw%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_883890-MLB93566068904_102025-F-kit-2-palmilhas-ortopedica-em-gel-anti-impacto-confortavel.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BKXb%2FIup4POhkBuDYFgSfhEvXIpHYUQG15Isn%2Bz4IoFd3AmSa3jfpUpvMj9bj%2Bmh7UKt55EnTPB%2B%2FNZs5amnjr26bFtSe%2B4jlTWHj5j2u9P0Mca1QE6LX%2FdsssweLAfvgzpxun3V9uwWr3EUsl7IUVt%2FhDZlxF03CsWesy6W2eHO9n4W6EKOIk1j7yTCJhJZ4H7%2BUQ%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_829315-MLB86546376260_062025-F-kit-4-pares-palmilha-de-gel-ortopedica-anatomica-confortavel.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BALcOIItkoAWr4D2lrzCz4P%2Fe4NfMX7n6tv%2F4I6veDh9PpVTnEYfVzJbb7MZA3Yg4diQg7W1K2lpKo5oN55HQgiPuaavGNSP0IUyU46T92cItiTAHgWeTn435QB6qiaGgwWmBTMl3acajUKZ6ICUkrlKr61p%2FbIaKEIRVBm5t2GFkl%2BxRYnZC3rrQeC%2BdoobbTy35A%3D%3D":"https://http2.mlstatic.com/D_NQ_NP_2X_821753-MLB94008965874_102025-F-palmilha-confort-atalaia.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BNspz%2BhZavFNvAoYbXeJaVpOfBuFHl5rJOswyynYL85XMycLl1afda%2FF7HS1eQyvdS1RlRqnazwMWmjc7l%2FAOcgIDzNdQmWyvwKdbiLDwXDRFWOa%2Fia0iGmfvyQLJsE0ydUDt3cbc8rLVyVlx3tKKIgR8U0DEYYzNb8HjqepBDjocE38G%2BSYyu61%2F6jcNMKQzhjkRQ%3D%3D":"https://http2.mlstatic.com/D_NQ_NP_2X_787921-MLB89225156377_082025-F-palmilhas-acero-em-gel-ortopedica-macia-confortavel.webp","https://s.shopee.com.br/3LQYkYEQ6q":"https://down-br.img.susercontent.com/file/sg-11134201-821ee-mh0t37ziv02087@resize_w900_nl.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BK6ek58ZpwmaNzEBrH%2BOXtFq9wexhSaRdlMM1a%2FVxLW5ulUM7m2M%2FWcB0ZbTkkNIxC1oOB6q9XcS5Bk1rpy7Zv0Qap79pU1mJoV%2FTze%2BHt41WtDynwyk1NmV6Z4%2BYqo7pW%2B9MmdWojFptNARO7YxX%2BgmAg%2F9XltLnjRqP8e06nNdWNJ%2FzCSyaZiWNKUsO8E1FbYgusa6zhbEh4OAsQ%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_865873-MLB109288739127_032026-F-pomada-minancora-30g.webp","https://s.shopee.com.br/2Vr0aVU2G7":"https://down-br.img.susercontent.com/file/d3554eb7b9476b530ed0d7c69875c658@resize_w900_nl.webp","https://s.shopee.com.br/2gAQmoTOvA":"https://3494.cdn.simplo7.net/static/3494/sku/quinzentenaconcentraco-rede-para-coque-1572115989920.jpg","https://s.shopee.com.br/9AOLh6w7As":"https://down-br.img.susercontent.com/file/br-11134201-820lo-mqy4q2ojl53937@resize_w900_nl.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BE9XSj3ZTfk1Eu3SqfAuRFzZPDvfhZZDHH7aIXFSG%2FUFJCaQmz3r0IKY2viiMyUSMhWul7mVncZbJrSvKx9%2BRDDB1%2FY1nR1wtED2J5gHTc7znyk42iMnXX3oB4Nfy%2FrhB0UKX0uAzTwW%2BOWFi3iHsg7IE%2FfEZI44KX3SDBYhpkLn6T%2FDZZ8ecVpJ6YftN3Ev4rErKg%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_943209-MLB95115260847_102025-F-top-lupo-loba-fitness-confortavel-otima-sustentaco-academia.webp","https://www.mercadolivre.com.br/social/roma6456341?matt_word=roma6456341&matt_tool=75117329&forceInApp=true&ref=BPYId7dXgXI1YzZTNHcHiJ7IiNnGVUenAqGVa6%2BQO9t5FwJ1U0N%2BFygRGcWtIeqdQw9S%2BtJv8i6SxzaQYP2fo%2BnbVymJRcoZ4T2FVyJwOyr9HruJhE4l1h%2F0iszN6dnPPiIlO5EmtfkwPKDCZIi0RFQYQTZP50cv%2B8cXRiHcwuuPtAqA%2Bvbe4QFkkPzaaDK8YijxjQ%3D%3D#origin=copy_link":"https://http2.mlstatic.com/D_NQ_NP_2X_955608-MLB97775146146_112025-F-top-nadador-com-bojo-removivel-selene-fitness-sustentaco.webp","https://s.shopee.com.br/4Azfk9RIdm":"https://down-br.img.susercontent.com/file/br-11134207-820me-mr241tz58yyu6b.webp","https://magazineluiza.onelink.me/589508454/c9w145jm":"https://m.magazineluiza.com.br/a-static/420x420/top-nadador-com-bojo-removivel-academia-fitness-confortavel-selene/wefbecommerce/39567/75c4786d4eca2ae006d229e0057ad4ed.jpeg","https://s.shopee.com.br/7KwhVnsxBg":"https://down-br.img.susercontent.com/file/br-11134207-7r98o-m0vmnrifrk3l12@resize_w900_nl.webp"};
 
 const CFG = {
-  // Concursos disponíveis na tela inicial (allowlist fixa). A planilha pode ter outros
-  // valores na coluna "Concurso" (ex.: CFO PMDF) — só aparece o que estiver aqui.
+  // Visual/textos de cada concurso. QUAIS concursos aparecem vem da aba "Concursos" da planilha
+  // (coluna "Status de Ativação"); um concurso ativo que não esteja aqui usa rótulos derivados do nome.
   // id = valor exato da coluna "Concurso"; rotulo/ano = texto do botão; badge = selo no topo.
   // msg = como o candidato se apresenta na mensagem de WhatsApp para a loja ("Sou do ...").
   // desc = subtítulo do botão na tela inicial.
+  // itensIniciais = nomes (Item Padronizado) que o botão "Itens iniciais" põe no carrinho — o botão só
+  // aparece se o concurso estiver com "Status de Ativação" E "Botão de Itens Iniciais" marcados.
   concursos: [
-    { id:"CBMDF - 2025",    rotulo:"CBMDF",    ano:"2025", badge:"CBMDF", msg:"CFP CBMDF 2026", desc:"Corpo de Bombeiros Militar do DF" },
+    { id:"CBMDF - 2025",    rotulo:"CBMDF",    ano:"2025", badge:"CBMDF", msg:"CFP CBMDF 2026", desc:"Corpo de Bombeiros Militar do DF",
+      itensIniciais: [
+        "Conjunto Agasalho (Blusa + Calça)", "Calça Preta Tática", "Camiseta CFP Curta", "Camiseta CFP Longa",
+        "Fita de Cinto Vermelha", "Fivela CBMDF", "Gorro Ed. Física Vermelho", "Short Vermelho",
+        "Camiseta Vermelha Bordada (OP)", "Conjunto Prontidão (Gandola + Calça)", "Gorro SD / Gorro Laranja (Praça)"
+      ] },
     { id:"CFP PMDF - 2023", rotulo:"CFP PMDF", ano:"2023", badge:"PMDF",  msg:"CFP PMDF 2023", desc:"Polícia Militar do DF" }
   ],
   // Fonte de dados: planilha "Backend - Controle de Enxoval".
@@ -534,7 +558,7 @@ const CFG = {
     equip:    1966974743,  // "EquipamentosAcessórios" (cabeçalho: Estado, Concurso, Categoria, Acessórios, Qtd Sugerida, lojas…)
     contatos: 1665715047,  // "Contatos"  (cabeçalho: Estado, Cidade/Município, Loja, Telefone, Instagram, Maps)
     online:   223946766,   // "Compras Online" (cabeçalho: Categoria, Produto, Link do Produto, Link da Imagem)
-    concursos: 205883308   // "Concursos" (cabeçalho: Estado, Concurso) — catálogo de concursos disponíveis
+    concursos: 205883308   // "Concursos" (cabeçalho: Estado, Concurso, Status de Ativação, Botão de Itens Iniciais)
     // Bizus (gid 1899352727) continua via SNAPSHOT: os links são hyperlink e o CSV não exporta a URL.
   },
   // As colunas são localizadas pelo NOME do cabeçalho (moldarTabela/carregarContatos), então dá pra
@@ -567,11 +591,12 @@ const CFG = {
 const SUPA_URL = "https://zjvxatpdajxdtpmifkxg.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqdnhhdHBkYWp4ZHRwbWlma3hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MTM5ODYsImV4cCI6MjEwNTA4OTk4Nn0.Y23MtmFlyQrk1sL9FSmem5SXPSUAQX2l__PxHNKrvnU";
 
-// Catálogo concurso→estado (aba "Concursos"). Snapshot de fallback; carregarCatalogo() atualiza ao vivo.
+// Catálogo de concursos (aba "Concursos"). Snapshot de fallback; carregarCatalogo() atualiza ao vivo.
+// ativo = "Status de Ativação" (aparece na tela inicial e no formulário); iniciais = "Botão de Itens Iniciais".
 const CATALOGO_SNAP = [
-  { estado:"Distrito Federal", concurso:"CBMDF - 2025" },
-  { estado:"Distrito Federal", concurso:"CFP PMDF - 2023" },
-  { estado:"Distrito Federal", concurso:"CFO PMDF - 2026" }
+  { estado:"Distrito Federal", concurso:"CBMDF - 2025",    ativo:true,  iniciais:true  },
+  { estado:"Distrito Federal", concurso:"CFP PMDF - 2023", ativo:true,  iniciais:false },
+  { estado:"Distrito Federal", concurso:"CFO PMDF - 2026", ativo:false, iniciais:false }
 ];
 let CATALOGO = CATALOGO_SNAP.slice();
 
@@ -598,13 +623,25 @@ const FLAG_LEAD = "enxoval_form_submitted";
 const leadJaEnviado = () => guarda.ler(FLAG_LEAD, false) === true;
 
 // ---- Concurso selecionado (tela inicial + filtros) ----
-const IDS_CONCURSO = new Set(CFG.concursos.map(c=>c.id));
-const concursoValido = c => IDS_CONCURSO.has(c);
-if(!concursoValido(E.concurso)) E.concurso = null;   // sem concurso válido → tela de seleção
+// Válido = ativo na aba "Concursos". Se estiver desativado, a escolha salva é mantida, mas volta pra seleção.
+const linhaCatalogo  = c => CATALOGO.find(r=>r.concurso===c) || null;
+const concursoValido = c => !!c && !!linhaCatalogo(c)?.ativo;
+// Metadados (rótulo, selo...) do CFG; concurso ativo sem entrada no CFG ganha rótulos derivados do nome.
+function metaConcurso(id){
+  const c = CFG.concursos.find(c=>c.id===id); if(c) return c;
+  const [rot, ano=""] = id.split(/\s+-\s+/);
+  return { id, rotulo:rot, ano, badge:rot, msg:id.replace(/\s*-\s*/," "), desc:"" };
+}
+const concursosAtivos = () => CATALOGO.filter(r=>r.ativo).map(r=>metaConcurso(r.concurso));
 // Mostra a seleção quando não há concurso válido OU quando o lead ainda não foi enviado
 // (assim o formulário sempre acontece antes da calculadora, mesmo após recarregar).
 let telaInicial = !concursoValido(E.concurso) || !leadJaEnviado();
-const infoConcurso = () => CFG.concursos.find(c=>c.id===E.concurso) || null;
+const infoConcurso = () => E.concurso ? metaConcurso(E.concurso) : null;
+// Botão "Itens iniciais": concurso ativo + "Botão de Itens Iniciais" marcado + lista definida no CFG.
+const itensIniciais = () => {
+  const r = linhaCatalogo(E.concurso);
+  return (r && r.ativo && r.iniciais) ? (infoConcurso()?.itensIniciais || []) : [];
+};
 const chaveLoja = loja => (E.concurso||"") + "::" + loja;   // "já comprou" é separado por concurso
 
 let DADOS = null, AO_VIVO = false;
@@ -675,8 +712,7 @@ function acharCol(header, ...nomes){
 
 // Lê uma aba de preços guiada pelo CABEÇALHO. À esquerda ficam as colunas de meta
 // (Estado, Concurso, Categoria, Item/Acessórios, Qtd Sugerida, Link da Foto); as lojas vêm logo depois.
-// Mantém só os itens dos concursos permitidos (CFG.concursos) e marca cada item com o seu concurso;
-// o filtro por concurso selecionado acontece na exibição (todos()). Categoria CFG.coturnoCat vai pro grupo "coturno".
+// Marca cada item com o seu concurso; o filtro por concurso selecionado (e ativo) acontece na exibição (todos()). Categoria CFG.coturnoCat vai pro grupo "coturno".
 function moldarTabela(linhas, blocoDefault, saida){
   const fem = new Set(CFG.femininos);
   const header = linhas[0] || [];
@@ -691,7 +727,7 @@ function moldarTabela(linhas, blocoDefault, saida){
   for(let r=1;r<linhas.length;r++){
     const ln = linhas[r]; if(!ln) continue;
     const conc = iConc>=0 ? String(ln[iConc]||"").trim() : "";
-    if(!IDS_CONCURSO.has(conc)) continue;   // vazio / fora do allowlist (ex.: CFO PMDF) = incompleto → ignora
+    if(!conc) continue;                     // sem concurso → ignora (inativos ficam ocultos na exibição)
     const nome = String(ln[iItem]||"").trim(); if(!nome) continue;
     const cat = String(ln[iCat]||"").trim();
     const p = {};
@@ -774,24 +810,30 @@ async function carregarContatos(){
     let insta = String(iIns>=0?ln[iIns]:"").trim(), ig="";
     if(insta.startsWith("@")) ig = "https://www.instagram.com/"+insta.replace(/^@/,"").trim(); else insta="";
     let maps = String(iMaps>=0?ln[iMaps]:"").trim(); if(!/^https?:\/\//i.test(maps)) maps="";
-    const concs = [iC1, iC2].map(i=> i>=0 ? String(ln[i]||"").trim() : "").filter(c=> IDS_CONCURSO.has(c));
+    const concs = [iC1, iC2].map(i=> i>=0 ? String(ln[i]||"").trim() : "").filter(Boolean);
     out.push([nome, tel, insta, ig, maps, concs]);
   }
   return out;
 }
 
-// Catálogo de concursos (aba "Concursos": Estado | Concurso) — alimenta os menus do formulário de lead.
+// Catálogo de concursos (aba "Concursos": Estado | Concurso | Status de Ativação | Botão de Itens Iniciais).
+// Define quais concursos aparecem (tela inicial + formulário de lead) e quem tem o botão "Itens iniciais".
+const marcado = v => /^(true|verdadeiro|sim|s|x|1|ativo)$/i.test(String(v||"").trim());   // checkbox do Sheets = TRUE/FALSE
 async function carregarCatalogo(){
   const linhas = await lerCSV(CFG.gid.concursos);
   const header = linhas[0] || [];
   const iEst = acharCol(header, "Estado");
   const iCon = acharCol(header, "Concurso");
+  const iAtv = acharCol(header, "Status de Ativação", "Status de Ativacao", "Ativo");
+  const iIni = acharCol(header, "Botão de Itens Iniciais", "Botao de Itens Iniciais", "Itens Iniciais");
   if(iEst<0 || iCon<0) return [];
   const out=[];
   for(let r=1;r<linhas.length;r++){
     const ln = linhas[r] || [];
     const estado = String(ln[iEst]||"").trim(), concurso = String(ln[iCon]||"").trim();
-    if(estado && concurso) out.push({ estado, concurso });
+    if(!estado || !concurso) continue;
+    const ativo = iAtv<0 ? true : marcado(ln[iAtv]);            // sem a coluna = ativo (compatível)
+    out.push({ estado, concurso, ativo, iniciais: ativo && iIni>=0 && marcado(ln[iIni]) });
   }
   return out;
 }
@@ -818,7 +860,7 @@ async function carregarSupabase(){
   const lset = { enxoval:new Set(), coturno:new Set(), equip:new Set() };
   for(const it of itens){
     const conc = it.concursos && it.concursos.nome;
-    if(!IDS_CONCURSO.has(conc)) continue;
+    if(!conc) continue;
     const cat = it.categoria || "";
     const bloco = blocoDaCategoria(cat, "enxoval");
     const p = {};
@@ -1017,16 +1059,79 @@ function itemHTML(it){
   </article>`;
 }
 
+// Item faz parte da lista de "Itens iniciais" do concurso selecionado (compara sem caixa/acento).
+function ehInicial(it){ return itensIniciais().some(n => normCat(n) === normCat(it.nome)); }
+
+// Lojas que vendem itens do concurso selecionado: quantos itens cada uma vende e o total (qtd atual).
+function lojasDoConcurso(){
+  const its = todos(), m = new Map();
+  for(const it of its) for(const [l,p] of Object.entries(it.p)){
+    const x = m.get(l) || { loja:l, n:0, total:0 }; x.n++; x.total += p*qtdDe(it); m.set(l, x);
+  }
+  return { total: its.length, lojas: [...m.values()].sort((a,b)=> b.n-a.n || a.total-b.total || a.loja.localeCompare(b.loja)) };
+}
+function fecharLojaUnica(){ const b=$("#lselBack"); if(b) b.remove(); }
+function abrirLojaUnica(){
+  fecharLojaUnica();
+  const { total, lojas } = lojasDoConcurso();
+  const back = document.createElement("div");
+  back.className = "lead-back"; back.id = "lselBack";
+  back.innerHTML = `
+    <div class="lsel" role="dialog" aria-modal="true" aria-labelledby="lselTit">
+      <div class="lsel-top">
+        <div><h2 id="lselTit">Escolha uma loja</h2>
+        <p>Os itens que a loja vende vão pro carrinho com ela. Os que ela não vende ficam sem loja, fora do carrinho.</p></div>
+        <button type="button" class="lsel-x" aria-label="Fechar">×</button>
+      </div>
+      <ul class="lsel-l">${lojas.map(x=>`<li>
+        <button type="button" class="lsel-op" data-loja="${esc(x.loja)}">
+          <span class="n">${esc(x.loja)}<span class="c">vende ${x.n} de ${total} ${total!==1?"itens":"item"}</span></span>
+          <span class="p num">${rs(x.total)}</span>
+        </button></li>`).join("")}</ul>
+    </div>`;
+  back.addEventListener("click", ev=>{
+    const op = ev.target.closest(".lsel-op");
+    if(op){ aplicarLojaUnica(op.dataset.loja); return; }
+    if(ev.target===back || ev.target.closest(".lsel-x")) fecharLojaUnica();
+  });
+  document.body.appendChild(back);
+  requestAnimationFrame(()=>{ const b=back.querySelector(".lsel-op"); if(b) b.focus(); });
+}
+// Monta o carrinho com uma loja só: itens que ela vende recebem a loja e entram no carrinho (se qtd > 0,
+// igual a "Selecionar tudo"); os que ela não vende ficam sem loja ("Escolher loja") e saem do carrinho.
+function aplicarLojaUnica(loja){
+  const its = todos(); let n = 0, noCart = 0;
+  for(const it of its){
+    if(it.p[loja]){
+      E.loja[it.id] = loja; n++;
+      E.cart[it.id] = qtdDe(it) > 0; if(E.cart[it.id]) noCart++;
+    } else { E.loja[it.id] = ""; E.cart[it.id] = false; }
+  }
+  track("loja_unica", { concurso:E.concurso, loja, itens:n, carrinho:noCart });
+  fecharLojaUnica(); salvar(); desenhar(); window.scrollTo(0,0);
+  const falta = its.length - n;
+  aviso(`${noCart} ${noCart!==1?"itens":"item"} da ${loja} no carrinho.` + (falta ? ` ${falta} ela não vende — ficaram em "Escolher loja".` : ""));
+}
+function aviso(txt){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role","status"); t.textContent = txt;
+  document.body.appendChild(t); setTimeout(()=>t.remove(), 4000);
+}
+document.addEventListener("keydown", ev=>{ if(ev.key==="Escape") fecharLojaUnica(); });
+
 function telaCalc(){
   const its=visiveis(), por={};
   for(const it of its) (por[it.bloco] ||= []).push(it);
   const alvos = its.filter(it=>qtdDe(it)>0);
   const todosSel = alvos.length>0 && alvos.every(emCarrinho);
+  const ini = itensIniciais().length ? its.filter(ehInicial) : [];
   let h=`<p class="hint" style="margin-top:14px">Escolha a <b>loja</b> pra comparar preços e ajuste a <b>quantidade</b> no <b>±</b>. Marque o <b>✓</b> pra <b>adicionar o item ao carrinho</b>.</p>
   <div class="ferramentas">
+    ${ini.length?`<button class="ferbtn inicial" data-act="iniciais">Itens iniciais do curso <span class="sm">${ini.length} itens · só eles no carrinho</span></button>`:""}
     <button class="ferbtn forte" data-act="tudo">${todosSel?"Desmarcar tudo":"Selecionar tudo"}</button>
     <button class="ferbtn" data-act="baratas">Lojas mais baratas</button>
     <button class="ferbtn ghost" data-act="limpar">Limpar escolhas</button>
+    <button class="ferbtn umaloja" data-act="umaloja">Comprar tudo numa loja só…</button>
   </div>`;
   for(const [chave,cfg] of Object.entries(CFG.blocos)){
     const lista=por[chave]; if(!lista?.length) continue;
@@ -1145,10 +1250,11 @@ function categoriaOnline(nomeItem, catItem){
 }
 
 const REF_PLATAFORMA = "Vim por meio da plataforma Enxoval do Aprovado (enxovaldoaprovado.com.br)";
+// Mensagem pra loja: cada item com o valor total dele (qtd × unitário) e, no fim, o "Valor Total" do pedido.
 function msgWhats(g){
-  const linhas = g.itens.map(i=>`• ${i.q}x ${i.nome}`).join("\n");
+  const linhas = g.itens.map(i=>`• ${i.q}x ${i.nome} — ${rs(i.sub)}`).join("\n");
   const conc = infoConcurso()?.msg || "CFP";
-  return `Olá! Sou do ${conc} e gostaria de comprar no(a) ${g.loja}:\n\n${linhas}\n\nPode me passar valores, formas de pagamento e disponibilidade? Obrigado(a)!\n\n${REF_PLATAFORMA}`;
+  return `Olá! Sou do ${conc} e gostaria de comprar no(a) ${g.loja}:\n\n${linhas}\n\n*Valor Total: ${rs(g.subtotal)}*\n\nPode confirmar os valores, formas de pagamento e disponibilidade? Obrigado(a)!\n\n${REF_PLATAFORMA}`;
 }
 function cardLojaCarrinho(g){
   const c = contatoDe(g.loja), online = ehOnline(g.loja);
@@ -1404,7 +1510,7 @@ const LOURO = `<svg class="louro" viewBox="0 0 56 24" aria-hidden="true">
 </svg>`;
 
 function telaSelecao(){
-  const opts = CFG.concursos.map(c=>`
+  const opts = concursosAtivos().map(c=>`
     <button type="button" class="conc-opt" data-conc="${esc(c.id)}" aria-label="${esc(c.rotulo)} ${esc(c.ano)} — ${esc(c.desc||"")}">
       <span class="co-txt">
         <span class="co-top"><span class="co-rot">${esc(c.rotulo)}</span><span class="co-ano">${esc(c.ano)}</span></span>
@@ -1474,8 +1580,8 @@ window.addEventListener("popstate", ev => {
 /* =========================================================================
    Captura de lead — pop-up após escolher o concurso (grava no Supabase)
    ========================================================================= */
-const estadosCatalogo   = () => [...new Set(CATALOGO.map(r=>r.estado))];
-const concursosDoEstado = est => CATALOGO.filter(r=>r.estado===est).map(r=>r.concurso);
+const estadosCatalogo   = () => [...new Set(CATALOGO.filter(r=>r.ativo).map(r=>r.estado))];
+const concursosDoEstado = est => CATALOGO.filter(r=>r.ativo && r.estado===est).map(r=>r.concurso);
 const estadoDoConcurso  = con => (CATALOGO.find(r=>r.concurso===con)||{}).estado || (estadosCatalogo()[0]||"");
 const rotuloConc        = c => c.replace(/\s*-\s*/," ");   // "CBMDF - 2025" -> "CBMDF 2025"
 
@@ -1640,6 +1746,20 @@ document.addEventListener("click", ev => {
       const todosSel = alvos.length>0 && alvos.every(emCarrinho);
       if(todosSel){ for(const it of alvos) E.cart[it.id]=false; }                    // desmarca tudo (mantém as lojas)
       else { for(const it of alvos){ if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja; if(!E.cart[it.id]){ E.cart[it.id]=true; track("add_ao_carrinho",{loja:lojaDe(it), item:it.nome, valor:unDe(it)*qtdDe(it), qtd:qtdDe(it), via:"selecionar_tudo"}); } } }
+    } else if(act==="iniciais"){
+      // Deixa no carrinho SOMENTE os itens iniciais: garante qtd ≥ 1 e loja (a mais barata, se não escolhida).
+      const todosIts = todos(), ini = todosIts.filter(ehInicial);
+      const outros = todosIts.filter(it=>!ehInicial(it) && emCarrinho(it)).length;
+      if(outros && !confirm(`Isso deixa no carrinho só os ${ini.length} itens iniciais (tira os outros ${outros}). Continuar?`)) return;
+      for(const it of todosIts){
+        if(!ehInicial(it)){ E.cart[it.id]=false; continue; }
+        if(qtdDe(it)<=0) E.qtd[it.id]=Math.max(1, it.qtd);
+        if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja;
+        E.cart[it.id]=true;
+      }
+      track("itens_iniciais", { concurso:E.concurso, itens:ini.length });
+    } else if(act==="umaloja"){
+      abrirLojaUnica(); return;
     } else if(act==="baratas"){
       for(const it of alvos) E.loja[it.id]=melhor(it).loja;                          // só designa a mais barata, sem mexer no carrinho
     } else if(act==="limpar"){

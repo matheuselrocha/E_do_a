@@ -26,7 +26,9 @@ if not KEY:
     sys.exit("ERRO: defina SUPABASE_SERVICE_ROLE (service_role key) na variável de ambiente.")
 
 PLANILHA = "1Yi-czpyFQeRk58tUx95wkevEG3lkwtcZQANR1KspV8U"
-GID = {"enx": 0, "equip": 1966974743, "contatos": 1665715047, "online": 223946766}
+GID = {"enx": 0, "equip": 1966974743, "contatos": 1665715047, "online": 223946766,
+       "concursos": 205883308}
+# Fallback: a lista real vem da aba "Concursos" (Estado | Concurso | Status de Ativação | ...).
 VALID = {"CBMDF - 2025", "CFP PMDF - 2023"}
 
 CANON = {"Demir": "Demir Fardas Militares", "Cezar": "Cezar Uniformes",
@@ -38,7 +40,6 @@ DOM2LOJA = [("mercadolivre", "Mercado Livre"), ("magazineluiza", "Magazine Luiza
             ("centauro", "Centauro"), ("amazon", "Amazon")]
 
 def norm(s): return re.sub(r"\s+", " ", str(s or "").strip()).casefold()
-VALID_NORM = {norm(v): v for v in VALID}   # aceita "Obrigatório em" com caixa/espaços variados
 
 # ---------------------------------------------------------------- Supabase (via curl)
 def _req(method, path, body=None, prefer=None):
@@ -157,6 +158,23 @@ def ler_itens_tab(rows, item_headers, cat_por_nome):
 
 # ============================================================================ RUN
 print("Baixando abas da planilha…")
+# ---- aba "Concursos": define os concursos importados e o flag "ativo" (Status de Ativação) ----
+def sim(s): return norm(s) in {"true", "verdadeiro", "sim", "s", "x", "1", "ativo"}
+ATIVO, ESTADO_CONC = {}, {}
+try:
+    cc_rows = baixar_csv(GID["concursos"])
+    cc_h = cc_rows[0]
+    icE = achar(cc_h, "Estado"); icC = achar(cc_h, "Concurso"); icA = achar(cc_h, "Status de Ativação", "Status de Ativacao", "Ativo")
+    for r in cc_rows[1:]:
+        c = r[icC].strip() if 0 <= icC < len(r) else ""
+        if not c: continue
+        ATIVO[c] = sim(r[icA]) if 0 <= icA < len(r) else True     # sem a coluna = ativo (compatível)
+        if 0 <= icE < len(r) and r[icE].strip(): ESTADO_CONC[c] = r[icE].strip()
+except SystemExit:
+    print("  AVISO: aba Concursos indisponível — usando a lista fixa VALID.")
+if ATIVO: VALID = set(ATIVO)
+VALID_NORM = {norm(v): v for v in VALID}   # aceita "Obrigatório em" com caixa/espaços variados
+
 enx_rows   = baixar_csv(GID["enx"])
 try: equip_rows = baixar_csv(GID["equip"])          # aba Acessórios é OPCIONAL (pode ser apagada)
 except SystemExit: equip_rows = []
@@ -202,8 +220,9 @@ for t in ["precos", "itens_enxoval", "produtos_online", "loja_concurso", "lojas"
 estado_de = {}
 for r in enx_rows[1:] + equip_rows[1:]:
     if len(r) > 1 and r[1].strip() in VALID: estado_de[r[1].strip()] = (r[0].strip() or "Distrito Federal")
+estado_de.update(ESTADO_CONC)                            # a aba Concursos tem prioridade
 conc_id = {c["nome"]: c["id"] for c in insert("concursos",
-          [{"nome": c, "estado": estado_de.get(c, "Distrito Federal"), "ativo": True} for c in sorted(VALID)])}
+          [{"nome": c, "estado": estado_de.get(c, "Distrito Federal"), "ativo": ATIVO.get(c, True)} for c in sorted(VALID)])}
 print(f"  concursos: {len(conc_id)} -> {list(conc_id)}")
 
 # ---- 2) lojas ----
