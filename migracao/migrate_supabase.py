@@ -67,13 +67,33 @@ def tem_coluna(table, col):
                         "-H", "apikey: " + KEY, "-H", "Authorization: Bearer " + KEY], capture_output=True, text=True)
     return p.stdout.strip() == "200"
 
-def insert(table, rows):
+def listar(table, cols):
+    """Todas as linhas da tabela (paginado — o PostgREST corta em 1000 por padrão)."""
+    out, off = [], 0
+    while True:
+        lote = _req("GET", f"/rest/v1/{table}?select={cols}&order=id&limit=1000&offset={off}") or []
+        out.extend(lote); off += len(lote)
+        if len(lote) < 1000: return out
+
+def sincronizar(table, rows, chaves, proteger=None):
+    """UPSERT pela chave natural (mantém o id de quem já existia) e remove o que saiu da planilha.
+    proteger(linha_existente) -> True = nunca apagar (ex.: loja parceira e os preços dela).
+    Devolve as linhas gravadas (com id), para montar os mapas nome -> id."""
+    kf = lambda r: tuple(str(r[c]) for c in chaves)
+    novas = {kf(r) for r in rows}
+    existentes = listar(table, "id," + ",".join(chaves))
     out = []
     for i in range(0, len(rows), 500):
-        out.extend(_req("POST", f"/rest/v1/{table}", rows[i:i+500], "return=representation") or [])
+        out.extend(_req("POST", f"/rest/v1/{table}?on_conflict={','.join(chaves)}", rows[i:i+500],
+                        "resolution=merge-duplicates,return=representation") or [])
+    velhas = [r["id"] for r in existentes if kf(r) not in novas and not (proteger and proteger(r))]
+    for i in range(0, len(velhas), 50):
+        _req("DELETE", f"/rest/v1/{table}?id=in.({','.join(velhas[i:i+50])})", None, "return=minimal")
+    SYNC[table] = (len(rows), len(velhas))
     return out
-def delete_all(table): _req("DELETE", f"/rest/v1/{table}?id=not.is.null", None, "return=minimal")
-def count(table):      return len(_req("GET", f"/rest/v1/{table}?select=id") or [])
+SYNC = {}   # tabela -> (gravadas, removidas) — vai pro relatório
+
+def count(table): return len(listar(table, "id"))
 
 # ---------------------------------------------------------------- planilha
 def baixar_csv(gid):
@@ -222,26 +242,29 @@ if enx_brancos:   descartes.append(("linhas em branco na aba Enxoval (sem nome)"
 if equip_brancos: descartes.append(("linhas em branco na aba Acessórios (sem nome)", equip_brancos))
 sem_catalogo = enx_sc + equip_sc
 
-# ---- limpar ----
-print("Limpando tabelas…")
-for t in ["precos", "itens_enxoval", "produtos_online", "loja_concurso", "lojas", "concursos"]:
-    delete_all(t)
+# ---- gravação: UPSERT por chave natural (IDs estáveis) — nada é apagado e recriado ----
+print("Sincronizando com o Supabase…")
 
 # ---- 1) concursos ----
 estado_de = {}
 for r in enx_rows[1:] + equip_rows[1:]:
     if len(r) > 1 and r[1].strip() in VALID: estado_de[r[1].strip()] = (r[0].strip() or "Distrito Federal")
 estado_de.update(ESTADO_CONC)                            # a aba Concursos tem prioridade
-conc_id = {c["nome"]: c["id"] for c in insert("concursos",
-          [{"nome": c, "estado": estado_de.get(c, "Distrito Federal"), "ativo": ATIVO.get(c, True)} for c in sorted(VALID)])}
+conc_id = {c["nome"]: c["id"] for c in sincronizar("concursos",
+          [{"nome": c, "estado": estado_de.get(c, "Distrito Federal"), "ativo": ATIVO.get(c, True)} for c in sorted(VALID)],
+          ["nome"])}
 print(f"  concursos: {len(conc_id)} -> {list(conc_id)}")
 
 # ---- 2) lojas ----
+# loja parceira que já está no banco nunca é apagada (mesmo que suma da planilha): tem conta/preços do painel
+parceiras_no_banco = {r["id"] for r in (_req("GET", "/rest/v1/lojas?select=id&parceira=eq.true") or [])} \
+                     if tem_coluna("lojas", "parceira") else set()
 ct_h = ct_rows[0]
 iNome = achar(ct_h, "Loja", "Nome"); iTel = achar(ct_h, "Telefone")
 iIns = achar(ct_h, "Instagram"); iMaps = achar(ct_h, "Maps")
 iC1 = achar(ct_h, "Concurso (1)", "Concurso 1", "Concurso"); iC2 = achar(ct_h, "Concurso (2)", "Concurso 2")
 iCAtv = achar(ct_h, "Status de Ativação", "Status de Ativacao", "Ativo")   # desmarcada = loja some do site
+iCPar = achar(ct_h, "Parceira", "Loja Parceira")   # contratante: preços vêm do painel, não da planilha
 contato_por_loja = {}
 for r in ct_rows[1:]:
     if len(r) <= iNome: continue
@@ -254,7 +277,8 @@ for r in ct_rows[1:]:
     tel = re.sub(r"^telefone[:\s]*", "", r[iTel] if 0 <= iTel < len(r) else "", flags=re.I).strip() or None
     concs = [r[ic].strip() for ic in (iC1, iC2) if 0 <= ic < len(r) and r[ic].strip() in VALID]
     contato_por_loja[nome] = {"telefone": tel, "instagram": ig, "link_maps": maps, "concursos": concs,
-                              "ativo": sim(r[iCAtv]) if 0 <= iCAtv < len(r) else True}
+                              "ativo": sim(r[iCAtv]) if 0 <= iCAtv < len(r) else True,
+                              "parceira": 0 <= iCPar < len(r) and sim(r[iCPar])}
 
 # marketplaces do catálogo (Plataforma) + colunas de preço das abas de itens
 market_online = {v["plataforma"] for v in cat_por_nome.values() if v["plataforma"]}
@@ -277,16 +301,23 @@ for m in market_online:
     if m not in todas_lojas:
         todas_lojas.add(m); (lojas_auto.append(m) if m not in contato_por_loja else None)
 
-loja_id = {l["nome"]: l["id"] for l in insert("lojas",
+COL_PARCEIRA = tem_coluna("lojas", "parceira")
+if not COL_PARCEIRA: print("  AVISO: coluna lojas.parceira não existe — rode o 04_fase0.sql.")
+loja_id = {l["nome"]: l["id"] for l in sincronizar("lojas",
           [{"nome": n, "tipo": tipo_de(n), "telefone": contato_por_loja.get(n, {}).get("telefone"),
             "instagram": contato_por_loja.get(n, {}).get("instagram"),
             "link_maps": contato_por_loja.get(n, {}).get("link_maps"),
-            "ativo": contato_por_loja.get(n, {}).get("ativo", True)}   # fora da aba Contatos = ativa
-           for n in sorted(todas_lojas)])}
+            "ativo": contato_por_loja.get(n, {}).get("ativo", True),   # fora da aba Contatos = ativa
+            **({"parceira": contato_por_loja.get(n, {}).get("parceira", False)} if COL_PARCEIRA else {})}
+           for n in sorted(todas_lojas)],
+          ["nome"], proteger=lambda r: r["id"] in parceiras_no_banco)}
 lojas_online = sorted([n for n in todas_lojas if tipo_de(n) == "online"])
 print(f"  lojas: {len(loja_id)}  (online: {lojas_online})")
 inativas = sorted(n for n, c in contato_por_loja.items() if not c["ativo"])
 if inativas: print(f"  lojas desativadas (ocultas no site): {inativas}")
+parceiras = sorted(n for n, c in contato_por_loja.items() if c["parceira"])
+if parceiras: print(f"  lojas parceiras (preços vêm do painel, a planilha não mexe): {parceiras}")
+parceira_ids = {loja_id[n] for n in parceiras if n in loja_id} | parceiras_no_banco
 
 # ---- 3) produtos_online ----
 prod_rows, prod_meta = [], []
@@ -312,18 +343,22 @@ for r in onl_rows[1:]:
                       "preco": (num(r[iOPreco]) if 0 <= iOPreco < len(r) else None),
                       "qtd": (qtd_num(r[iOQtd]) if 0 <= iOQtd < len(r) else None),
                       "inicial": 0 <= iOIni < len(r) and sim(r[iOIni])})
-prod_ins = insert("produtos_online", prod_rows)
+# nome é a chave única do catálogo: repetido fica só o 1º (e vai pro relatório)
+vistos_prod, dup_prod, prod_unicos, meta_unicos = set(), [], [], []
+for row, meta in zip(prod_rows, prod_meta):
+    if row["nome"] in vistos_prod: dup_prod.append(row["nome"]); continue
+    vistos_prod.add(row["nome"]); prod_unicos.append(row); meta_unicos.append(meta)
+if dup_prod: descartes.append(("nomes repetidos no catálogo online (fica só o 1º)", dup_prod[:10]))
+prod_ins = sincronizar("produtos_online", prod_unicos, ["nome"])
+prod_id = {p["nome"]: p["id"] for p in prod_ins}
 print(f"  produtos_online: {len(prod_ins)}")
-
-prod_by_nome, dup_prod = {}, []
-for p in prod_ins:
-    k = norm(p["nome"])
-    (dup_prod.append(p["nome"]) if k in prod_by_nome else prod_by_nome.setdefault(k, p["id"]))
-if dup_prod: descartes.append(("nomes repetidos no catálogo online (liga só o 1º)", dup_prod[:10]))
+prod_by_nome = {}
+for p in prod_ins: prod_by_nome.setdefault(norm(p["nome"]), p["id"])
 
 # itens vindos do catálogo via "Obrigatório em" (cadastro único)
 tagged_itens = []
-for p, meta in zip(prod_ins, prod_meta):
+for meta in meta_unicos:
+    p = {"id": prod_id[meta["nome"]]}
     for c in meta["obrig"]:
         precos = [{"loja": meta["loja"], "preco": meta["preco"], "link": meta["link"]}] \
                  if meta["loja"] and (meta["preco"] is not None or meta["link"]) else []
@@ -345,7 +380,7 @@ for nome, info in contato_por_loja.items():
     for c in info["concursos"]: add_lc(nome, c)
 for nome in lojas_online:
     for c in conc_id: add_lc(nome, c)
-insert("loja_concurso", lc)
+sincronizar("loja_concurso", lc, ["loja_id", "concurso_id"])
 print(f"  loja_concurso: {len(lc)}")
 
 # ---- 5) itens_enxoval (produto_online_id por construção ou por nome) ----
@@ -369,8 +404,9 @@ for it in todos_itens:
                       "cargo": None, "link_foto": it["foto"], "produto_online_id": pid,
                       **({"item_inicial": inicial_de[ch]} if COL_INICIAL else {})})
     chave_item.append(ch)
-item_id = {}
-for ch, row in zip(chave_item, insert("itens_enxoval", item_rows)): item_id[ch] = row["id"]
+nome_conc = {v: k for k, v in conc_id.items()}
+item_id = {(nome_conc[r["concurso_id"]], r["nome_padronizado"]): r["id"]
+           for r in sincronizar("itens_enxoval", item_rows, ["concurso_id", "nome_padronizado"])}
 ligados = sum(1 for r in item_rows if r["produto_online_id"])
 print(f"  itens_enxoval: {len(item_id)}  (ligados ao catálogo: {ligados}; itens iniciais: {sum(1 for r in item_rows if r.get('item_inicial'))})")
 
@@ -383,16 +419,19 @@ for it in todos_itens:
         lid = loja_id.get(p["loja"])
         if not lid:
             descartes.append(("preço sem loja correspondente", (it["nome"], p["loja"]))); continue
+        if lid in parceira_ids: continue                  # loja parceira: preço é do painel
         if p["preco"] is None and not p["link"]: continue
         key = (iid, lid)
         if key not in preco_map:
             preco_map[key] = {"item_id": iid, "loja_id": lid, "preco": p["preco"], "link_produto": p["link"]}
 preco_rows = list(preco_map.values())
-insert("precos", preco_rows)
-print(f"  precos: {len(preco_rows)}")
+sincronizar("precos", preco_rows, ["item_id", "loja_id"], proteger=lambda r: r["loja_id"] in parceira_ids)
+print(f"  precos: {len(preco_rows)}  (lojas parceiras preservadas: {len(parceira_ids)})")
 
 # ============================================================================ CONFERÊNCIA
 print("\n================ CONFERÊNCIA ================")
+print("  sincronização (gravadas / removidas por terem saído da planilha):")
+for t, (g, rm) in SYNC.items(): print(f"    {t:16s}: {g} / {rm}")
 for t in ["concursos", "lojas", "loja_concurso", "produtos_online", "itens_enxoval", "precos"]:
     print(f"  {t:16s}: {count(t)} linhas")
 print("\n  itens por concurso:", dict(Counter(it["concurso"] for it in todos_itens if (it["concurso"], it["nome"]) in item_id)))
