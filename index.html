@@ -183,6 +183,29 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .cupom .cd{font-family:"Barlow Semi Condensed";font-size:18px;font-weight:700;letter-spacing:.06em;color:var(--fogo-d);
   border:1px solid var(--fogo);border-radius:6px;padding:3px 9px;background:#fff;white-space:nowrap}
 
+.cupom+.cupom{margin-top:8px}
+.cupom .tx{flex:1;min-width:0}
+.cupom .tx small{display:block;color:var(--ink3);font-size:11.5px;margin-top:2px}
+
+/* balão de cupom (calculadora e catálogo online) — tocar copia o código */
+.balao{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:max-content;max-width:100%;
+  margin:9px 0 2px;padding:7px 10px;border:1px solid var(--fogo);border-radius:10px;background:#FDEEE2;color:var(--fogo-d);
+  font:inherit;font-size:12.5px;font-weight:600;line-height:1.3;text-align:left;cursor:pointer}
+.balao::before{content:"";position:absolute;left:14px;top:-6px;width:9px;height:9px;background:#FDEEE2;
+  border-left:1px solid var(--fogo);border-top:1px solid var(--fogo);transform:rotate(45deg)}
+.balao .tx{display:block}
+.balao .cp{display:inline-flex;align-items:center;gap:5px;max-width:100%}
+.balao .cd{min-width:0;overflow-wrap:anywhere;font-family:"Barlow Semi Condensed";font-weight:700;font-size:13px;letter-spacing:.02em;
+  background:var(--fogo);color:#fff;border-radius:5px;padding:2px 6px}
+.balao svg{flex:none;width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none}
+.balao:active{background:#FBE0CB}
+.balao:focus-visible{outline:2px solid var(--fogo);outline-offset:2px}
+.cupom .balao{margin:0}
+.cupom .balao::before{display:none}
+.lj .tagCupom{flex:none;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--fogo);border-radius:4px;padding:1px 5px}
+.cupItem{padding:0 15px 12px 50px;margin-top:-4px}
+.cupItem .balao{margin:0}
+
 /* contatos */
 .ct{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid var(--rule2);align-items:flex-start}
 .ct:last-child{border-bottom:none}
@@ -551,7 +574,8 @@ const CFG = {
     equip:    1966974743,  // "EquipamentosAcessórios" (cabeçalho: Estado, Concurso, Categoria, Acessórios, Qtd Sugerida, lojas…)
     contatos: 1665715047,  // "Contatos"  (cabeçalho: Estado, Cidade/Município, Loja, Telefone, Instagram, Maps)
     online:   223946766,   // "Compras Online" (cabeçalho: Categoria, Produto, Link do Produto, Link da Imagem)
-    concursos: 205883308   // "Concursos" (cabeçalho: Estado, Concurso, Status de Ativação, Botão de Itens Iniciais)
+    concursos: 205883308,  // "Concursos" (cabeçalho: Estado, Concurso, Status de Ativação, Botão de Itens Iniciais)
+    cupons:   2033305666   // "Cupons" (cabeçalho: Ativo, Código, Texto do balão, Loja, Produtos) — sempre lida do Sheets
     // Bizus (gid 1899352727) continua via SNAPSHOT: os links são hyperlink e o CSV não exporta a URL.
   },
   // As colunas são localizadas pelo NOME do cabeçalho (moldarTabela/carregarContatos), então dá pra
@@ -849,6 +873,43 @@ async function carregarCatalogo(){
   return out;
 }
 
+// Cupons (aba "Cupons": Ativo | Código | Texto do balão | Loja | Produtos). Sempre lida do Sheets, como a aba
+// Concursos: mudança na planilha aparece na hora. Produtos = nomes separados por ";", iguais aos da aba
+// Compras Online / Enxoval — o mesmo nome põe o balão no catálogo online e no item da calculadora.
+let CUPONS = [];
+const chaveNome = s => String(s||"").toLowerCase().replace(/\s+/g," ").trim();
+async function carregarCupons(){
+  const linhas = await lerCSV(CFG.gid.cupons);
+  const header = linhas[0] || [];
+  const iAtv = acharCol(header, "Ativo", "Status de Ativação");
+  const iCod = acharCol(header, "Código", "Codigo", "Cupom");
+  const iTx  = acharCol(header, "Texto do balão", "Texto do balao", "Texto");
+  const iLj  = acharCol(header, "Loja");
+  const iPr  = acharCol(header, "Produtos", "Produto");
+  if(iCod<0 || iPr<0) return [];
+  const out=[];
+  for(let r=1;r<linhas.length;r++){
+    const ln = linhas[r] || [];
+    const codigo = String(ln[iCod]||"").trim();
+    if(!codigo || (iAtv>=0 && !marcado(ln[iAtv]))) continue;
+    const produtos = String(ln[iPr]||"").split(";").map(chaveNome).filter(Boolean);
+    if(!produtos.length) continue;
+    out.push({ codigo, texto: iTx>=0 ? String(ln[iTx]||"").trim() : "", loja: iLj>=0 ? String(ln[iLj]||"").trim() : "", produtos });
+  }
+  return out;
+}
+const cupomDe = nome => { const k=chaveNome(nome); return CUPONS.find(c=>c.produtos.includes(k)) || null; };
+const svgCopiar = () => `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>`;
+function balaoHTML(c, item){
+  return `<button class="balao" data-cupom="${esc(c.codigo)}" data-ci="${esc(item)}" data-cl="${esc(c.loja)}" title="Toque para copiar o cupom" aria-label="Copiar cupom ${esc(c.codigo)}">
+    ${c.texto?`<span class="tx">${esc(c.texto)}</span>`:""}<span class="cp"><span class="cd">${esc(c.codigo)}</span>${svgCopiar()}</span></button>`;
+}
+async function copiarTexto(t){
+  try{ await navigator.clipboard.writeText(t); return true; }catch(_){}
+  try{ const a=document.createElement("textarea"); a.value=t; a.setAttribute("readonly",""); a.style.position="fixed"; a.style.opacity="0";
+       document.body.appendChild(a); a.select(); const ok=document.execCommand("copy"); a.remove(); return ok; }catch(_){ return false; }
+}
+
 /* =========================================================================
    Leitura via Supabase (Etapa 2) — monta o mesmo DADOS que vem do Sheets.
    ========================================================================= */
@@ -913,15 +974,17 @@ async function carregarSupabase(){
   return { blocos,
            links: links.length ? links : SNAPSHOT.links,
            contatos: contatos.length ? contatos : SNAPSHOT.contatos,
-           pagamento: SNAPSHOT.pagamento, cupom: SNAPSHOT.cupom, bizus: SNAPSHOT.bizus };
+           pagamento: SNAPSHOT.pagamento, bizus: SNAPSHOT.bizus };
 }
 
 async function carregar(){
+  const cuponsP = carregarCupons().then(c=>{ CUPONS=c; }).catch(e=>console.warn("Cupons ao vivo falharam:", e.message));
   if(FONTE === "supabase"){
     try{
       DADOS = await carregarSupabase();
       AO_VIVO = true;
       try{ const cs = await carregarCatalogo(); if(cs.length) CATALOGO = cs; }catch(_){}
+      await cuponsP;
       desenhar();
       return;
     }catch(e){
@@ -953,6 +1016,7 @@ async function carregar(){
     const cat = await carregarCatalogo();
     if(cat.length) CATALOGO = cat;              // catálogo concurso→estado ao vivo (fallback: snapshot)
   }catch(e){ console.warn("Catálogo de concursos ao vivo falhou — usando cópia local:", e.message); }
+  await cuponsP;
   desenhar();
 }
 
@@ -1039,11 +1103,11 @@ function chevron(){ return `<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></s
 
 function itemHTML(it){
   const q=qtdDe(it), lj=lojaDe(it), un=it.p[lj]||0, inCart=emCarrinho(it), zer=q<=0, semLoja=lj==="";
-  const ord=Object.entries(it.p).sort((a,b)=>a[1]-b[1]), min=ord[0][1];
+  const ord=Object.entries(it.p).sort((a,b)=>a[1]-b[1]), min=ord[0][1], cup=cupomDe(it.nome);
   const comp=ord.map(([l,p])=>`
     <button class="lj ${p===min?"menor":""}" data-loja="${esc(l)}" role="radio" aria-checked="${l===lj}">
       <span class="r0"></span>
-      <span class="n">${esc(l)}</span><span class="p num">${rs(p)}</span>
+      <span class="n">${esc(l)}</span>${cup&&cup.loja&&chaveNome(cup.loja)===chaveNome(l)?`<span class="tagCupom">cupom</span>`:""}<span class="p num">${rs(p)}</span>
       <span class="dif num">${p===min?"—":"+"+(p-min).toLocaleString("pt-BR")}</span>
     </button>`).join("");
   return `<article class="item ${inCart?"nocart":""} ${zer?"zerado":""}" data-id="${esc(it.id)}">
@@ -1067,6 +1131,7 @@ function itemHTML(it){
       </div>
       <div class="dir"><div class="v num">${rs(un*q)}</div><div class="un num">${semLoja?"sem loja":rs(un)+" cada"}</div></div>
     </div>
+    ${cup?`<div class="cupItem">${balaoHTML(cup, it.nome)}</div>`:""}
     <div class="exp" role="radiogroup" aria-label="Lojas que vendem ${esc(it.nome)}">
       <div class="lbl">${ord.length} loja${ord.length>1?"s":""} · da mais barata p/ mais cara</div>
       ${comp}
@@ -1180,8 +1245,11 @@ function telaLojas(){
   h+=`<h2 class="grupo">Pagamento e desconto à vista</h2><div class="painel"><table class="pag">`;
   for(const [loja,parc,desc] of DADOS.pagamento)
     h+=`<tr><td>${esc(loja)}</td><td>${esc(parc)} · ${esc(desc)}</td></tr>`;
-  h+=`</table><div class="cupom"><span class="cd">${esc(DADOS.cupom.codigo)}</span>
-      <span>${DADOS.cupom.pct} de desconto na <b>${esc(DADOS.cupom.loja)}</b></span></div></div>`;
+  h+=`</table>`;
+  for(const c of CUPONS)   // cupons ativos da aba Cupons (tocar copia o código)
+    h+=`<div class="cupom"><button class="balao" data-cupom="${esc(c.codigo)}" data-cl="${esc(c.loja)}" title="Toque para copiar o cupom" aria-label="Copiar cupom ${esc(c.codigo)}"><span class="cp"><span class="cd">${esc(c.codigo)}</span>${svgCopiar()}</span></button>
+      <span class="tx">Cupom${c.loja?` da <b>${esc(c.loja)}</b>`:""}<small>${c.produtos.length} produto${c.produtos.length>1?"s":""} com desconto · toque para copiar</small></span></div>`;
+  h+=`</div>`;
   return h;
 }
 
@@ -1202,6 +1270,7 @@ function telaOnline(){
         ${thumb}
         <div class="oinfo">
           <div class="ot">${esc(x.t)}</div>
+          ${(c=>c?balaoHTML(c, x.t):"")(cupomDe(x.t))}
           ${x.preco ? `<div class="oprice">${rs(x.preco)}<small>no site</small></div>` : ""}
           <a class="abrir sm" href="${esc(x.u)}" target="_blank" rel="noopener nofollow">Abrir oferta
             <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
@@ -1781,6 +1850,14 @@ document.addEventListener("click", ev => {
       E.loja={}; E.cart={}; E.compradoLoja={};
     }
     salvar(); desenhar(); window.scrollTo(0,0); return;
+  }
+
+  const bal = ev.target.closest(".balao");
+  if(bal){
+    const cod = bal.dataset.cupom;
+    copiarTexto(cod).then(ok => aviso(ok ? `Cupom ${cod} copiado. Cole no pagamento${bal.dataset.cl?" da "+bal.dataset.cl:""}.` : `Cupom: ${cod}`));
+    track("cupom_copiado", { cupom:cod, loja:bal.dataset.cl||"", item:bal.dataset.ci||"", aba:E.aba });
+    return;
   }
 
   const art = ev.target.closest(".item");

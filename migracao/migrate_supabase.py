@@ -27,7 +27,7 @@ if not KEY:
 
 PLANILHA = "1Yi-czpyFQeRk58tUx95wkevEG3lkwtcZQANR1KspV8U"
 GID = {"enx": 0, "equip": 1966974743, "contatos": 1665715047, "online": 223946766,
-       "concursos": 205883308}
+       "concursos": 205883308, "cupons": 2033305666}
 # Fallback: a lista real vem da aba "Concursos" (Estado | Concurso | Status de Ativação | ...).
 VALID = {"CBMDF - 2025", "CFP PMDF - 2023"}
 
@@ -451,6 +451,24 @@ if not online_sem_match: print("    nenhuma 🎉")
 print(f"\n  CONCURSOS DESCONHECIDOS NA ABA CONTATOS ({len(CONC_DESCONHECIDO)}) — confira o nome exato na aba Concursos:")
 for loja, c in CONC_DESCONHECIDO: print(f"    - {loja}: '{c}'")
 if not CONC_DESCONHECIDO: print("    nenhum 🎉")
+
+# Aba Cupons: o site lê direto do Sheets; aqui só conferimos se os nomes em "Produtos" existem.
+cupons_sem_produto = []
+try:
+    cp_rows = baixar_csv(GID["cupons"])
+    cph = cp_rows[0] if cp_rows else []
+    iCpCod, iCpAtv, iCpPr = achar(cph, "Código", "Codigo", "Cupom"), achar(cph, "Ativo"), achar(cph, "Produtos", "Produto")
+    nomes_site = {norm(n) for _, n in item_id} | {norm(n) for n in prod_id}
+    for r in cp_rows[1:]:
+        if iCpCod < 0 or iCpPr < 0 or iCpCod >= len(r) or not r[iCpCod].strip(): continue
+        if 0 <= iCpAtv < len(r) and not sim(r[iCpAtv]): continue
+        for nm in (r[iCpPr] if iCpPr < len(r) else "").split(";"):
+            if nm.strip() and norm(nm) not in nomes_site: cupons_sem_produto.append((r[iCpCod].strip(), nm.strip()))
+except SystemExit:
+    print("  AVISO: aba Cupons indisponível — conferência de cupons pulada.")
+print(f"\n  CUPONS COM PRODUTO NÃO ENCONTRADO ({len(cupons_sem_produto)}) — o balão não aparece; confira o nome exato:")
+for cod, nm in cupons_sem_produto: print(f"    - {cod}: '{nm}'")
+if not cupons_sem_produto: print("    nenhum 🎉")
 
 print(f"\n  DESCARTES ({len(descartes)}):")
 for motivo, det in descartes[:40]: print("    -", motivo, "->", det)
