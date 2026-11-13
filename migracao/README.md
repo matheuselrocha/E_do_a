@@ -12,13 +12,21 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
 - `05_painel.sql` — painel das lojas parceiras: `loja_usuarios` (conta → loja), `minha_loja()`,
   leitura do catálogo p/ usuário logado e **RLS de escrita em `precos`** (só a própria loja parceira,
   só itens dos concursos que ela atende, só a coluna `preco`). Rode 1x.
+- `06_metricas.sql` — métricas por loja: tabela `eventos_loja` (sem acesso direto), `registrar_eventos()`
+  (o site grava cliques de WhatsApp, carrinho, PDF etc.) e `metricas_minha_loja()` (a loja logada lê só
+  os próprios números, agregados). Rode 1x.
+- `07_admin.sql` — painel administrativo: tabela `admins`, `eh_admin()` e `metricas_admin()` (métricas de
+  todas as lojas, somadas e por loja, com período livre). Criar admin: ver o fim do arquivo. Rode 1x.
+- `08_equipe.sql` — equipe da administração (`admin.html`): papéis `proprietario` / `admin` / `leitor`,
+  `meu_papel()`, `pode_editar()`, `listar_equipe()`, `alterar_papel()`. O proprietário é definido só no SQL
+  (ver o fim do arquivo); convites e remoções passam pela Edge Function `supabase/functions/equipe`. Rode 1x.
 - `migrate_supabase.py` — o importador (lê a planilha ao vivo e **sincroniza**: atualiza pelo nome,
   mantendo os IDs, e remove só o que saiu da planilha).
 - `importar.sh` — atalho para rodar o importador (carrega a chave do `.env`).
 - `.env.example` — modelo do arquivo de segredo (a chave real fica em `.env`, fora do git).
 
 ## Primeira vez (setup)
-1. No Supabase (SQL Editor), rode `01_schema.sql`, `02_online.sql`, `03_rls.sql` e `04_fase0.sql` (nessa ordem).
+1. No Supabase (SQL Editor), rode `01_schema.sql`, `02_online.sql`, `03_rls.sql`, `04_fase0.sql`, `05_painel.sql`, `06_metricas.sql`, `07_admin.sql` e `08_equipe.sql` (nessa ordem).
 2. Copie `migracao/.env.example` para `migracao/.env` e cole a **service_role key**
    (Supabase → Settings → API → `service_role`). O `.env` **não** é versionado.
 

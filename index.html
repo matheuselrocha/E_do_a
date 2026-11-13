@@ -182,7 +182,6 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 .cupom{display:flex;align-items:center;gap:11px;border:1px dashed var(--fogo);border-radius:9px;padding:11px 13px;margin-top:12px;font-size:13px;color:var(--ink2)}
 .cupom .cd{font-family:"Barlow Semi Condensed";font-size:18px;font-weight:700;letter-spacing:.06em;color:var(--fogo-d);
   border:1px solid var(--fogo);border-radius:6px;padding:3px 9px;background:#fff;white-space:nowrap}
-
 .cupom+.cupom{margin-top:8px}
 .cupom .tx{flex:1;min-width:0}
 .cupom .tx small{display:block;color:var(--ink3);font-size:11.5px;margin-top:2px}
@@ -258,6 +257,11 @@ table.pag td:last-child{text-align:right;color:var(--ink2);padding-left:8px}
 /* ---------- rodapé ---------- */
 .rodape{padding:22px 16px 12px;font-size:12px;color:var(--ink3);line-height:1.55}
 .rodape a{color:var(--ink2)}
+.rodape .contato{margin:8px 0 0}
+.rodape .contato a{font-weight:600;color:var(--ink2);text-decoration:none;overflow-wrap:anywhere}
+.rodape .contato a:hover{text-decoration:underline}
+.rodape .adm,.sel-copy .adm{margin-left:10px;padding:1px 7px;border:1px solid currentColor;border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.04em;text-decoration:none;color:inherit;opacity:.75;white-space:nowrap}
+.rodape .adm:hover,.sel-copy .adm:hover{opacity:1;color:var(--fogo)}
 .rodape .copy{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--rule);font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--ink2)}
 .ferramentas{display:flex;gap:7px;padding:0 16px;margin:2px 0 6px;flex-wrap:wrap}
 .ferbtn{flex:1;min-width:96px;min-height:40px;border:1px solid var(--rule);background:var(--card);border-radius:9px;padding:8px 10px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;line-height:1.15}
@@ -409,6 +413,12 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
 .conc-opt:hover .co-seta{transform:translateX(3px)}
 .selpe{display:flex;align-items:center;justify-content:center;gap:9px;margin:26px 0 0;font-size:12.5px;color:#8E947D;letter-spacing:.02em}
 .selpe .louro{width:30px;height:13px;opacity:.8}
+.sel-contato{margin:18px 0 0;font-size:12px;color:#8E947D;line-height:1.5}
+.sel-contato a{font-weight:600;color:#B7BE9F;text-decoration:none;overflow-wrap:anywhere}
+.sel-contato a:hover{color:var(--fogo)}
+.lead-contato{margin:0;text-align:center;font-size:11.5px;color:var(--ink3);line-height:1.45}
+.lead-contato a{font-weight:600;color:var(--ink2);text-decoration:none;overflow-wrap:anywhere}
+.lead-contato a:hover{text-decoration:underline}
 .sel-copy{margin:16px 0 0;font-size:10.5px;font-weight:600;letter-spacing:.04em;color:#6E7359;text-transform:uppercase}
 
 /* ---------- pop-up de captura de lead ---------- */
@@ -530,7 +540,8 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
 
   <div class="rodape">
     <p>Pesquisa feita pela equipe do Enxoval do Aprovado. Preço muda sem aviso — confirme na loja antes de comprar. </p>
-    <p class="copy">© 2026 ENXOVAL DO APROVADO — Todos os direitos reservados.</p>
+    <p class="contato">Fale Conosco: <a href="mailto:enxovaldoaprovado.com.br@gmail.com">enxovaldoaprovado.com.br@gmail.com</a></p>
+    <p class="copy">© 2026 ENXOVAL DO APROVADO — Todos os direitos reservados.<a class="adm" href="admin.html" title="Área da equipe">Adm</a></p>
   </div>
 </div>
 
@@ -684,6 +695,31 @@ function initAnalytics(){
   }catch(e){ console.warn("Analytics não iniciou:", e.message); }
 }
 function track(ev, props){ try{ if(window.posthog && window.posthog.capture) window.posthog.capture(ev, props||{}); }catch(e){} }
+
+/* Métricas por loja (Supabase, migracao/06_metricas.sql) — alimentam o painel das lojas.
+   Sem dado pessoal: só um id aleatório do aparelho. Eventos vão em lote (2 s ou ao sair da aba).
+   Só grava no domínio oficial (teste local: ?metricas=1). */
+const METRICAS = /(^|\.)enxovaldoaprovado\.com\.br$/.test(location.hostname) || new URLSearchParams(location.search).has("metricas");
+const SESSAO = (() => { let s = guarda.ler("enxoval_sessao", ""); if(!s){ s = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2)); guarda.gravar("enxoval_sessao", s); } return s; })();
+let FILA = [], filaT = 0;
+function metrica(t, loja, extra){               // t: whatsapp|contato|instagram|mapa|carrinho|pdf|loja_unica
+  if(!METRICAS || !loja) return;
+  FILA.push({ t, l:loja, c:E.concurso||"", ...(extra||{}) });
+  clearTimeout(filaT); filaT = setTimeout(enviarMetricas, 2000);
+}
+const metricaCarrinho = (it, via) => metrica("carrinho", lojaDe(it), { i:it.nome, v:unDe(it)*qtdDe(it), q:qtdDe(it), via });
+function enviarMetricas(){
+  clearTimeout(filaT);
+  while(FILA.length){
+    const lote = FILA.splice(0, 60);
+    try{
+      fetch(SUPA_URL + "/rest/v1/rpc/registrar_eventos", { method:"POST", keepalive:true,
+        headers:{ apikey:SUPA_KEY, Authorization:"Bearer "+SUPA_KEY, "Content-Type":"application/json" },
+        body: JSON.stringify({ p_sessao:SESSAO, p_eventos:lote }) }).catch(()=>{});
+    }catch(e){}
+  }
+}
+document.addEventListener("visibilitychange", () => { if(document.hidden) enviarMetricas(); });
 
 /* =========================================================================
    Leitura da planilha (gviz — público, sem chave, sem backend)
@@ -1200,11 +1236,14 @@ function aplicarLojaUnica(loja){
   const its = todos(); let n = 0, noCart = 0;
   for(const it of its){
     if(it.p[loja]){
+      const antes = emCarrinho(it) && lojaDe(it)===loja;
       E.loja[it.id] = loja; n++;
       E.cart[it.id] = qtdDe(it) > 0; if(E.cart[it.id]) noCart++;
+      if(!antes && E.cart[it.id]) metricaCarrinho(it, "loja_unica");
     } else { E.loja[it.id] = ""; E.cart[it.id] = false; }
   }
   track("loja_unica", { concurso:E.concurso, loja, itens:n, carrinho:noCart });
+  metrica("loja_unica", loja, { q:noCart });
   fecharLojaUnica(); salvar(); desenhar(); window.scrollTo(0,0);
   const falta = its.length - n;
   aviso(`${noCart} ${noCart!==1?"itens":"item"} da ${loja} no carrinho.` + (falta ? ` ${falta} ela não vende — ficaram em "Escolher loja".` : ""));
@@ -1253,9 +1292,9 @@ function telaLojas(){
         <div class="n">${esc(nome)}</div>
         <div class="i">${esc(tel)}${insta?" · "+esc(insta):""}</div>
       </div><div class="acts">
-        ${zap?`<a class="ico zap" href="https://wa.me/55${zap}?text=${encodeURIComponent("Olá! "+REF_PLATAFORMA)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(nome)}">${svgZap()}</a>`:""}
-        ${igurl?`<a class="ico ig" href="${esc(igurl)}" target="_blank" rel="noopener" aria-label="Instagram de ${esc(nome)}">${svgIg()}</a>`:""}
-        ${maps?`<a class="ico map" href="${esc(maps)}" target="_blank" rel="noopener" aria-label="Localização de ${esc(nome)} no mapa">${svgMap()}</a>`:""}
+        ${zap?`<a class="ico zap" data-m="contato" data-ml="${esc(nome)}" href="https://wa.me/55${zap}?text=${encodeURIComponent("Olá! "+REF_PLATAFORMA)}" target="_blank" rel="noopener" aria-label="WhatsApp de ${esc(nome)}">${svgZap()}</a>`:""}
+        ${igurl?`<a class="ico ig" data-m="instagram" data-ml="${esc(nome)}" href="${esc(igurl)}" target="_blank" rel="noopener" aria-label="Instagram de ${esc(nome)}">${svgIg()}</a>`:""}
+        ${maps?`<a class="ico map" data-m="mapa" data-ml="${esc(nome)}" href="${esc(maps)}" target="_blank" rel="noopener" aria-label="Localização de ${esc(nome)} no mapa">${svgMap()}</a>`:""}
       </div></div>`;
   }
   h+=`</div><p class="aviso">Chama no WhatsApp pra confirmar preço, tamanho e prazo antes de ir. Alguns números são fixos — se o WhatsApp não abrir, ligue.</p>`;
@@ -1379,9 +1418,9 @@ function cardLojaCarrinho(g){
       if(tel){
         acao=`<a class="abrir" data-wa="${esc(g.loja)}" data-valor="${g.falta}" data-itens="${g.nFalta}" href="https://wa.me/55${tel}?text=${encodeURIComponent(msgWhats(g))}" target="_blank" rel="noopener">Enviar para ${esc(g.loja)}
           <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>`;
-        if(ig) acao+=`<a class="ig-link" href="${esc(ig)}" target="_blank" rel="noopener">ou falar pelo Instagram</a>`;
+        if(ig) acao+=`<a class="ig-link" data-m="instagram" data-ml="${esc(g.loja)}" href="${esc(ig)}" target="_blank" rel="noopener">ou falar pelo Instagram</a>`;
       } else if(ig){
-        acao=`<a class="abrir" href="${esc(ig)}" target="_blank" rel="noopener">Abrir Instagram de ${esc(g.loja)}</a>`;
+        acao=`<a class="abrir" data-m="instagram" data-ml="${esc(g.loja)}" href="${esc(ig)}" target="_blank" rel="noopener">Abrir Instagram de ${esc(g.loja)}</a>`;
       } else if(online){
         acao=`<p class="lojaonline-nota">Loja online — toque em “Consultar ofertas” para comparar e comprar cada item.</p>`;
       }
@@ -1472,6 +1511,8 @@ async function baixarOrcamentoPDF(btn){
       valor: grupos.reduce((a,g)=>a+g.subtotal,0),
       lojas: grupos.length,
     });
+    for(const g of grupos) metrica("pdf", g.loja, { v:g.subtotal, q:g.nItens });
+    enviarMetricas();
   }catch(e){
     alert("Não consegui gerar o PDF agora. Confira sua conexão e tente novamente.");
   }finally{
@@ -1636,7 +1677,8 @@ function telaSelecao(){
     <div class="selescolha">Escolha seu concurso</div>
     <div class="selopts">${opts}</div>
     <p class="selpe">${LOURO}<span>Feito por quem já passou pelo mesmo processo</span><span class="louro-r">${LOURO}</span></p>
-    <p class="sel-copy">© 2026 ENXOVAL DO APROVADO — Todos os direitos reservados.</p>
+    <p class="sel-contato">Fale Conosco: <a href="mailto:enxovaldoaprovado.com.br@gmail.com">enxovaldoaprovado.com.br@gmail.com</a></p>
+    <p class="sel-copy">© 2026 ENXOVAL DO APROVADO — Todos os direitos reservados.<a class="adm" href="admin.html" title="Área da equipe">Adm</a></p>
   </div>`;
 }
 
@@ -1747,6 +1789,7 @@ function abrirFormLead(concursoId){
         <button type="submit" class="lead-btn" id="leadSubmit">Ver meu enxoval <span aria-hidden="true">→</span></button>
         <button type="button" class="lead-skip" id="leadSkip" hidden>Continuar sem cadastro</button>
         <p class="lead-nota">🔒 Seus dados ficam seguros. Você só recebe avisos se marcar a opção acima.</p>
+        <p class="lead-contato">Fale Conosco: <a href="mailto:enxovaldoaprovado.com.br@gmail.com">enxovaldoaprovado.com.br@gmail.com</a></p>
       </div>
     </form>`;
   document.body.appendChild(back);
@@ -1827,7 +1870,10 @@ document.addEventListener("click", ev => {
   if(pdf){ baixarOrcamentoPDF(pdf); return; }
 
   const wa = ev.target.closest("a[data-wa]");
-  if(wa) track("whatsapp_click", { loja:wa.dataset.wa, valor:+wa.dataset.valor||0, itens:+wa.dataset.itens||0 });  // sem return: o link segue abrindo
+  if(wa){ track("whatsapp_click", { loja:wa.dataset.wa, valor:+wa.dataset.valor||0, itens:+wa.dataset.itens||0 });  // sem return: o link segue abrindo
+          metrica("whatsapp", wa.dataset.wa, { v:+wa.dataset.valor||0, q:+wa.dataset.itens||0 }); enviarMetricas(); }
+  const mt = ev.target.closest("a[data-m]");
+  if(mt){ metrica(mt.dataset.m, mt.dataset.ml); enviarMetricas(); }           // contato/Instagram/mapa (o link segue abrindo)
 
   const cons = ev.target.closest(".consultar");
   if(cons){
@@ -1863,7 +1909,7 @@ document.addEventListener("click", ev => {
     if(act==="tudo"){
       const todosSel = alvos.length>0 && alvos.every(emCarrinho);
       if(todosSel){ for(const it of alvos) E.cart[it.id]=false; }                    // desmarca tudo (mantém as lojas)
-      else { for(const it of alvos){ if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja; if(!E.cart[it.id]){ E.cart[it.id]=true; track("add_ao_carrinho",{loja:lojaDe(it), item:it.nome, valor:unDe(it)*qtdDe(it), qtd:qtdDe(it), via:"selecionar_tudo"}); } } }
+      else { for(const it of alvos){ if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja; if(!E.cart[it.id]){ E.cart[it.id]=true; track("add_ao_carrinho",{loja:lojaDe(it), item:it.nome, valor:unDe(it)*qtdDe(it), qtd:qtdDe(it), via:"selecionar_tudo"}); metricaCarrinho(it, "selecionar_tudo"); } } }
     } else if(act==="iniciais"){
       // Deixa no carrinho SOMENTE os itens iniciais (loja mais barata, se não escolhida). Item com qtd 0
       // ("a critério do candidato") ganha a loja mas fica fora do carrinho — igual ao "Selecionar tudo".
@@ -1873,13 +1919,16 @@ document.addEventListener("click", ev => {
       for(const it of todosIts){
         if(!ehInicial(it)){ E.cart[it.id]=false; continue; }
         if(lojaDe(it)==="") E.loja[it.id]=melhor(it).loja;
+        const antes = emCarrinho(it);
         E.cart[it.id] = qtdDe(it)>0;
+        if(!antes && emCarrinho(it)) metricaCarrinho(it, "itens_iniciais");
       }
       track("itens_iniciais", { concurso:E.concurso, itens:ini.length });
     } else if(act==="umaloja"){
       abrirLojaUnica(); return;
     } else if(act==="baratas"){
-      for(const it of alvos) E.loja[it.id]=melhor(it).loja;                          // só designa a mais barata, sem mexer no carrinho
+      for(const it of alvos){ const antes=lojaDe(it); E.loja[it.id]=melhor(it).loja;   // só designa a mais barata, sem mexer no carrinho
+        if(emCarrinho(it) && lojaDe(it)!==antes) metricaCarrinho(it, "mais_baratas"); }
     } else if(act==="limpar"){
       if(!confirm("Isso zera as lojas escolhidas, o carrinho e as marcações de “já comprou”. As quantidades continuam. Continuar?")) return;
       E.loja={}; E.cart={}; E.compradoLoja={}; E.compradoItem={};
@@ -1903,7 +1952,7 @@ document.addEventListener("click", ev => {
   if(ev.target.closest(".tick")){
     if(lojaDe(it)===""){ art.classList.add("aberto"); return; }   // sem loja → abre a lista pra escolher primeiro
     E.cart[id]=!E.cart[id];                                        // checkbox = adicionar/remover do carrinho
-    if(E.cart[id]) track("add_ao_carrinho", { loja:lojaDe(it), item:it.nome, valor:unDe(it)*qtdDe(it), qtd:qtdDe(it) });
+    if(E.cart[id]){ track("add_ao_carrinho", { loja:lojaDe(it), item:it.nome, valor:unDe(it)*qtdDe(it), qtd:qtdDe(it) }); metricaCarrinho(it, "manual"); }
     salvar(); desenhar(); return;
   }
 
@@ -1911,7 +1960,9 @@ document.addEventListener("click", ev => {
   if(passo){ E.qtd[id]=Math.max(0, qtdDe(it) + (+passo.dataset.d)); salvar(); desenhar(); return; }
 
   const lj = ev.target.closest(".lj");
-  if(lj){ const nova=lj.dataset.loja; E.loja[id] = (E.loja[id]===nova) ? "" : nova; salvar(); desenhar(); return; }  // toca de novo p/ limpar
+  if(lj){ const nova=lj.dataset.loja, antes=lojaDe(it); E.loja[id] = (E.loja[id]===nova) ? "" : nova;   // toca de novo p/ limpar
+          if(emCarrinho(it) && lojaDe(it)!==antes) metricaCarrinho(it, "troca_loja");                    // item do carrinho mudou de loja
+          salvar(); desenhar(); return; }
 
   if(ev.target.closest(".lojaBtn") || ev.target.closest(".nome")){ art.classList.toggle("aberto"); return; }
 });
