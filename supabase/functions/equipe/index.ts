@@ -55,8 +55,9 @@ Deno.serve(async (req) => {
       const { data: ja } = await adm.from("admins").select("user_id").eq("user_id", uid).maybeSingle();
       if (ja) return resp(409, { erro: "Esse e-mail já faz parte da equipe." });
     } else {
-      // conta nova: o Supabase manda o e-mail de convite; o link abre o admin.html para criar a senha
-      const redirectTo = (ORIGENS.includes(origem) ? origem : ORIGENS[0]) + "/admin.html";
+      // conta nova: o Supabase manda o e-mail de convite; o link abre o admin.html OFICIAL para criar a senha
+      // (sempre o domínio publicado: convite feito de um teste local levaria a pessoa para o localhost de quem convidou)
+      const redirectTo = ORIGENS[0] + "/admin.html";
       const { data, error } = await adm.auth.admin.inviteUserByEmail(email, { redirectTo });
       if (error || !data?.user) {
         const limite = error?.status === 429 || /rate limit/i.test(error?.message || "");
