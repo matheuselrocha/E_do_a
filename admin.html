@@ -276,7 +276,11 @@ document.addEventListener("change", async ev=>{
   if(t.dataset.papel){
     t.disabled = true;
     const { error } = await sb.rpc("alterar_papel", { p_user: t.dataset.papel, p_papel: t.value });
-    if(error){ console.warn(error); aviso("Não foi possível alterar o papel.", true); }
+    if(error){
+      console.warn(error);
+      if(error.code === "42501"){ aviso("Esta conta não pode alterar papéis. Confira com qual conta você está logado.", true); return iniciar(); }
+      aviso("Não foi possível alterar o papel.", true);
+    }
     else aviso("Papel alterado.");
     abrirEquipe();
   }
@@ -300,7 +304,7 @@ document.addEventListener("click", async ev=>{
   }
 });
 $("#btnSair").addEventListener("click", async ()=>{
-  await sb.auth.signOut(); A.eu = null; A.papel = null; A.equipe = null; ADM.met = null; ADM.loja = ""; ADM.lojas = []; telaLogin();
+  A.eu = null; await sb.auth.signOut(); A.papel = null; A.equipe = null; ADM.met = null; ADM.loja = ""; ADM.lojas = []; telaLogin();
 });
 
 /* ---------------- ciclo ---------------- */
@@ -324,8 +328,17 @@ async function iniciar(){
     telaAviso("Não foi possível carregar", "Verifique a conexão e recarregue a página.");
   }
 }
-sb.auth.onAuthStateChange(ev=>{
-  if(ev === "PASSWORD_RECOVERY"){ definindoSenha = true; setTimeout(iniciar, 0); }
+sb.auth.onAuthStateChange((ev, sessao)=>{
+  if(ev === "PASSWORD_RECOVERY"){ definindoSenha = true; setTimeout(iniciar, 0); return; }
+  // a sessão é compartilhada entre abas: se outra aba trocou de conta ou saiu, esta acompanha
+  // (senão a tela continuaria com os botões da conta anterior e o banco recusaria os pedidos)
+  if(!A.eu || definindoSenha) return;
+  const id = sessao?.user?.id || null;
+  if(id === A.eu.id) return;
+  A.papel = null; A.equipe = null; ADM.met = null;
+  if(!id){ A.eu = null; aviso("Você saiu da conta em outra aba."); setTimeout(()=>telaLogin(), 0); return; }
+  aviso(`Agora você está como ${sessao.user.email} (login feito em outra aba).`);
+  setTimeout(iniciar, 0);
 });
 iniciar();
 </script>
