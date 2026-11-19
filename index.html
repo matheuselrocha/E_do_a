@@ -1022,6 +1022,8 @@ async function carregarSupabase(){
 }
 
 async function carregar(){
+  carregarBizus().then(b=>{ BIZUS = b; if(E.aba === "bizus" && DADOS) desenhar(); })
+                 .catch(e=>console.warn("Bizus do banco falharam — usando cópia local:", e.message));
   const cuponsP = carregarCupons().then(c=>{ CUPONS=c; }).catch(e=>console.warn("Cupons ao vivo falharam:", e.message));
   if(FONTE === "supabase"){
     try{
@@ -1619,14 +1621,42 @@ function gerarPDF(grupos, logo){
 /* =========================================================================
    Tela 4 — Bizus
    ========================================================================= */
-const ICONE_GRUPO = {"Arquivos base":"📁","Ordem unida":"🥾","Hinos e canções":"🎵","Nós e amarrações":"🪢","Cuidado com os pés":"🦶","Manutenção do coturno":"🥾","Kit costura":"🧵","Outros":"⭐"};
+// Ícone da categoria por palavra-chave (as categorias vêm da planilha com qualquer nome).
+const ICONES_BIZU = [[/drive|arquivo/i,"📁"],[/ordem unida/i,"🥾"],[/hino|can[cç][aã]o|can[cç][oõ]es|playlist|spotify/i,"🎵"],
+  [/n[oó]s\b|amarra/i,"🪢"],[/p[eé]s\b/i,"🦶"],[/coturno|engraxa/i,"🥾"],[/costura/i,"🧵"],[/manual|uniforme|regulamento/i,"📘"],[/outros/i,"⭐"]];
+const iconeGrupo = g => (ICONES_BIZU.find(([re])=>re.test(g)) || [,"🔗"])[1];
+
+// Bizus por concurso (tabela `bizus` no Supabase, importada das abas "<concurso> - Bizus para o CFP").
+// null = ainda não carregou ou falhou → cai na cópia embutida (SNAPSHOT.bizus, que é do CBMDF).
+let BIZUS = null;
+async function carregarBizus(){
+  const rows = await sbGet("bizus?select=categoria,titulo,link,ordem,concursos(nome)&ativo=eq.true&order=ordem");
+  const por = {};
+  for(const r of rows){
+    const c = r.concursos && r.concursos.nome; if(!c || !r.link) continue;
+    const g = String(r.categoria||"Outros").trim();
+    const m = (por[c] ||= new Map());
+    if(!m.has(g)) m.set(g, []);
+    m.get(g).push([String(r.titulo||"").trim(), r.link]);
+  }
+  return Object.fromEntries(Object.entries(por).map(([c, m]) => [c, [...m]]));
+}
+function bizusDoConcurso(){
+  if(BIZUS) return BIZUS[E.concurso] || [];
+  return E.concurso === "CBMDF - 2025" ? (DADOS.bizus || []) : [];
+}
 function telaBizus(){
+  const grupos = bizusDoConcurso();
   let h=`<p class="hint" style="margin-top:12px">Materiais que os aprovados juntaram pra chegar preparado no Curso de Formação.</p>`;
-  for(const [grupo,itens] of DADOS.bizus){
+  if(!grupos.length){
+    const c = infoConcurso();
+    return h + `<p class="hint">Os bizus do ${esc(c ? c.rotulo : "seu concurso")} estão sendo preparados. Volte em breve!</p>`;
+  }
+  for(const [grupo,itens] of grupos){
     h+=`<h2 class="grupo">${esc(grupo)}</h2><div class="painel biz">`;
     for(const [t,u] of itens){
       h+=`<a href="${esc(u)}" target="_blank" rel="noopener nofollow">
-        <span class="tag">${ICONE_GRUPO[grupo]||"🔗"}</span><span>${esc(t)}</span>
+        <span class="tag">${iconeGrupo(grupo)}</span><span>${esc(t)}</span>
         <span class="ar"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></span></a>`;
     }
     h+=`</div>`;
