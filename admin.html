@@ -34,7 +34,38 @@ select{font:inherit}
 .membro .rem{font-size:13px;color:var(--erro)}
 .tag.dono{color:var(--fogo-d)}
 .tag.ler{color:var(--ink2)}
+/* aba Dados (somente leitura) */
+.subs{display:flex;gap:6px;overflow-x:auto;margin:0 -16px 12px;padding:0 16px 2px;scrollbar-width:none}
+.subs::-webkit-scrollbar{display:none}
+.subs button{flex:none;border:1px solid var(--rule);background:var(--card);border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--ink2);cursor:pointer}
+.subs button[aria-pressed="true"]{background:var(--fogo);border-color:var(--fogo);color:#fff}
+.reg{display:flex;align-items:flex-start;gap:12px;padding:11px 12px;border-top:1px solid var(--rule2)}
+.lista>.reg:first-child,.lista>details:first-child>summary.reg{border-top:0}
+.reg img,.reg .ph{width:44px;height:44px;object-fit:contain;border-radius:8px;background:#F6F5F0;flex:none}
+.reg .meio{flex:1;min-width:0}
+.reg .nome{font-weight:600;font-size:15px;line-height:1.25;overflow-wrap:anywhere}
+.reg .ref{font-size:12.5px;color:var(--ink3);margin-top:3px;line-height:1.4}
+.reg .ref b{color:var(--ink2);font-weight:600}
+.reg .ref a{color:var(--ink2)}
+.reg .dir{flex:none;text-align:right;font-size:13px;color:var(--ink2);white-space:nowrap}
+.reg .dir b{display:block;font-size:15px;color:var(--ink)}
+.tags{display:inline-flex;gap:4px;flex-wrap:wrap;vertical-align:1px}
+.tag.ini{color:var(--fogo-d)} .tag.azul{color:#3E6A8A}
+details>summary{list-style:none;cursor:pointer}
+details>summary::-webkit-details-marker{display:none}
+details[open]>summary{background:#FAF9F5}
+.det{padding:4px 12px 12px 68px;font-size:13.5px;background:#FAF9F5}
+.det table{width:100%;border-collapse:collapse}
+.det td{padding:5px 0;border-top:1px solid var(--rule2)}
+.det td.n{text-align:right;white-space:nowrap;padding-left:10px}
+.det .off,.reg .off{color:var(--ink3)}
+.aviso-ed{font-size:12.5px;color:var(--ink3);margin:14px 2px 20px}
+.cupom{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:12px 13px;margin:0 0 10px}
+.cupom .cod{font-family:"Barlow Semi Condensed",Barlow,sans-serif;font-weight:700;font-size:18px;letter-spacing:.04em}
+.cupom p{margin:4px 0 0;font-size:13.5px;color:var(--ink2)}
+.cupom ul{margin:8px 0 0;padding-left:18px;font-size:13.5px}
 @media (max-width:520px){
+  .det{padding-left:12px}
   .membro{flex-wrap:wrap}
   .membro .acoes{width:100%;justify-content:space-between}
 }
@@ -158,10 +189,10 @@ function telaAviso(titulo, txt){
 }
 
 function abasHTML(){
-  return `<div class="abas" role="tablist">${[["metricas","Métricas"],["equipe","Equipe"]].map(([k,t])=>
+  return `<div class="abas" role="tablist">${[["metricas","Métricas"],["dados","Dados"],["equipe","Equipe"]].map(([k,t])=>
     `<button role="tab" data-aba="${k}" aria-selected="${A.aba===k}">${t}</button>`).join("")}</div>`;
 }
-function abrirAba(){ A.aba === "equipe" ? abrirEquipe() : abrirMetricas(); }
+function abrirAba(){ A.aba === "equipe" ? abrirEquipe() : A.aba === "dados" ? abrirDados() : abrirMetricas(); }
 
 /* ---------------- aba Métricas (todas as lojas) ---------------- */
 const ADM = { lojas: [], loja: "", preset: 30, ini: "", fim: "", met: null, pedido: 0 };
@@ -251,7 +282,145 @@ async function equipeFn(corpo){
   try{ return await error.context.json(); }catch{ return { erro: "Não foi possível falar com o servidor." }; }
 }
 
+/* ---------------- aba Dados (somente leitura — etapa 3 do backend) ----------------
+   Mostra o que está no Supabase (vindo da planilha pela importação). A edição entra na etapa 5. */
+const D = { sub: "concursos", cache: {}, conc: "", busca: "", tipo: "" };
+const SUBS = [["concursos","Concursos"],["itens","Itens"],["lojas","Lojas"],["online","Online"],["cupons","Cupons"]];
+const CONSULTAS = {
+  concursos: () => sb.from("concursos").select("id, nome, estado, ativo, itens_iniciais, rotulo, ano, selo, msg_whatsapp, descricao, ordem, itens_enxoval(count), loja_concurso(count)"),
+  itens:     () => sb.from("itens_enxoval").select("id, nome_padronizado, categoria, qtd_sugerida, link_foto, item_inicial, feminino, produto_online_id, concurso_id, precos(preco, lojas(nome, ativo, parceira))"),
+  lojas:     () => sb.from("lojas").select("id, nome, tipo, telefone, instagram, link_maps, ativo, parceira, estado, cidade, loja_concurso(concursos(nome)), precos(count)"),
+  online:    () => sb.from("produtos_online").select("id, categoria, nome, link_produto, link_imagem, preco, ativo, lojas(nome, ativo), itens_enxoval(concursos(nome)), cupom_produtos(cupons(codigo, ativo))"),
+  cupons:    () => sb.from("cupons").select("id, codigo, texto, ativo, lojas(nome), cupom_produtos(produtos_online(nome)), cupom_itens(itens_enxoval(nome_padronizado, concursos(nome)))")
+};
+const ordConc = (a, b) => (a.ordem ?? 99) - (b.ordem ?? 99) || a.nome.localeCompare(b.nome);
+const nInt = r => (r && r[0] && r[0].count) || 0;
+const qtdTxt = q => q == null ? "—" : q === 0 ? "a critério" : `${q}×`;
+const foto = (u, alt) => u ? `<img src="${esc(u)}" alt="${esc(alt||"")}" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph'}))">` : `<div class="ph"></div>`;
+const tag = (txt, cls) => `<span class="tag ${cls||""}">${esc(txt)}</span>`;
+const bate = (...txt) => !D.busca || norm(txt.join(" ")).includes(norm(D.busca));
+
+async function dados(sub){
+  if(D.cache[sub]) return D.cache[sub];
+  const pedidos = [CONSULTAS[sub]()];
+  if(sub === "itens") pedidos.push(dados("concursos"));
+  const [r] = await Promise.all(pedidos);
+  if(r.error) throw r.error;
+  return (D.cache[sub] = r.data || []);
+}
+function subsHTML(){
+  return `<div class="subs" role="group" aria-label="Tipo de dado">${SUBS.map(([k,t])=>
+    `<button data-sub="${k}" aria-pressed="${D.sub===k}">${t}</button>`).join("")}</div>`;
+}
+const buscaHTML = ph => `<input class="busca" id="dBusca" type="search" placeholder="${ph}" value="${esc(D.busca)}" aria-label="${ph}">`;
+const avisoEd = `<p class="aviso-ed">Somente leitura. Por enquanto as mudanças são feitas na planilha e chegam aqui na importação automática.</p>`;
+
+function vConcursos(cs){
+  cs = cs.slice().sort(ordConc);
+  return `<div class="resumo"><h1>Concursos</h1><span class="cont num">${cs.filter(c=>c.ativo).length} ativos de ${cs.length}</span></div>
+    <div class="lista">${cs.map(c=>`<div class="reg"><div class="meio">
+      <div class="nome">${esc(c.nome)} <span class="tags">${c.ativo ? tag("ativo") : tag("desativado","off")}${c.itens_iniciais ? tag("itens iniciais","ini") : ""}</span></div>
+      <div class="ref">${c.rotulo ? `Botão: <b>${esc(c.rotulo)} ${esc(c.ano||"")}</b>` : "Sem textos (usa o nome)"}${c.selo ? ` · selo <b>${esc(c.selo)}</b>` : ""}${c.estado ? ` · ${esc(c.estado)}` : ""}</div>
+      ${c.descricao ? `<div class="ref">${esc(c.descricao)}</div>` : ""}
+      ${c.msg_whatsapp ? `<div class="ref">WhatsApp: "Sou do ${esc(c.msg_whatsapp)}"</div>` : ""}
+    </div><div class="dir"><b class="num">${nInt(c.itens_enxoval)}</b>itens<br><span class="num">${nInt(c.loja_concurso)}</span> lojas</div></div>`).join("")}</div>`;
+}
+function vItens(its, cs){
+  cs = cs.slice().sort(ordConc);
+  if(!D.conc || !cs.some(c=>c.id===D.conc)) D.conc = (cs.find(c=>c.ativo) || cs[0] || {}).id || "";
+  const doConc = its.filter(i=>i.concurso_id===D.conc);
+  const vis = doConc.filter(i=>bate(i.nome_padronizado, i.categoria)).sort((a,b)=>(a.categoria||"").localeCompare(b.categoria||"") || a.nome_padronizado.localeCompare(b.nome_padronizado));
+  const porCat = new Map(); for(const i of vis){ const k = i.categoria || "Sem categoria"; if(!porCat.has(k)) porCat.set(k, []); porCat.get(k).push(i); }
+  let h = `<div class="resumo"><h1>Itens do enxoval</h1><span class="cont num">${doConc.length} itens</span></div>
+    <div class="concs" role="group" aria-label="Concurso">${cs.map(c=>`<button data-dconc="${esc(c.id)}" aria-pressed="${c.id===D.conc}">${esc(c.rotulo ? c.rotulo+" "+(c.ano||"") : c.nome)}${c.ativo?"":" (desativado)"}</button>`).join("")}</div>
+    ${buscaHTML("Buscar item")}`;
+  if(!vis.length) h += `<p class="vazio">Nenhum item encontrado.</p>`;
+  for(const [cat, lista] of porCat){
+    h += `<h2 class="cat">${esc(cat)} <span class="n">${lista.length}</span></h2><div class="lista">${lista.map(i=>{
+      const ps = (i.precos||[]).filter(p=>p.preco!=null).sort((a,b)=>a.preco-b.preco);
+      const ativos = ps.filter(p=>p.lojas && p.lojas.ativo!==false);
+      const menor = ativos[0];
+      return `<details><summary class="reg">${foto(i.link_foto, i.nome_padronizado)}<div class="meio">
+          <div class="nome">${esc(i.nome_padronizado)}</div>
+          <div class="ref">Qtd: <b>${qtdTxt(i.qtd_sugerida)}</b> <span class="tags">${i.item_inicial ? tag("inicial","ini") : ""}${i.feminino ? tag("feminino","azul") : ""}${i.produto_online_id ? tag("online","azul") : ""}</span></div>
+        </div><div class="dir">${menor ? `<b class="num">${brl(menor.preco)}</b>${ativos.length} loja${ativos.length!==1?"s":""}` : `<span class="off">sem preço</span>`}</div></summary>
+        <div class="det">${ps.length ? `<table>${ps.map(p=>`<tr class="${p.lojas && p.lojas.ativo===false ? "off" : ""}"><td>${esc(p.lojas?.nome||"?")}${p.lojas?.parceira ? " "+tag("parceira") : ""}${p.lojas && p.lojas.ativo===false ? " (desativada)" : ""}</td><td class="n num">${brl(p.preco)}</td></tr>`).join("")}</table>` : "Nenhuma loja com preço."}</div></details>`;
+    }).join("")}</div>`;
+  }
+  return h;
+}
+function vLojas(ls){
+  const vis = ls.filter(l=>(!D.tipo || l.tipo===D.tipo) && bate(l.nome, l.cidade, l.estado))
+                .sort((a,b)=>(b.ativo-a.ativo) || a.nome.localeCompare(b.nome));
+  return `<div class="resumo"><h1>Lojas</h1><span class="cont num">${ls.filter(l=>l.ativo).length} ativas de ${ls.length}</span></div>
+    <div class="concs" role="group" aria-label="Tipo">${[["","Todas"],["fisica","Físicas"],["online","Online"]].map(([k,t])=>`<button data-dtipo="${k}" aria-pressed="${D.tipo===k}">${t}</button>`).join("")}</div>
+    ${buscaHTML("Buscar loja")}
+    ${vis.length ? `<div class="lista">${vis.map(l=>{
+      const concs = (l.loja_concurso||[]).map(x=>x.concursos?.nome).filter(Boolean).sort();
+      const contato = [l.telefone ? esc(l.telefone) : "", l.instagram ? `<a href="${esc(l.instagram)}" target="_blank" rel="noopener">Instagram</a>` : "",
+                       l.link_maps ? `<a href="${esc(l.link_maps)}" target="_blank" rel="noopener">Mapa</a>` : ""].filter(Boolean).join(" · ");
+      return `<div class="reg"><div class="meio">
+        <div class="nome">${esc(l.nome)} <span class="tags">${l.tipo==="online" ? tag("online","azul") : ""}${l.parceira ? tag("parceira") : ""}${l.ativo ? "" : tag("desativada","off")}</span></div>
+        ${l.cidade || l.estado ? `<div class="ref">${esc([l.cidade, l.estado].filter(Boolean).join(" · "))}</div>` : ""}
+        ${contato ? `<div class="ref">${contato}</div>` : ""}
+        <div class="ref">${concs.length ? esc(concs.join(", ")) : "Nenhum concurso"}</div>
+      </div><div class="dir"><b class="num">${nInt(l.precos)}</b>preços</div></div>`; }).join("")}</div>` : `<p class="vazio">Nenhuma loja encontrada.</p>`}`;
+}
+function vOnline(ps){
+  const vis = ps.filter(p=>bate(p.nome, p.categoria, p.lojas?.nome)).sort((a,b)=>(a.categoria||"").localeCompare(b.categoria||"") || a.nome.localeCompare(b.nome));
+  const porCat = new Map(); for(const p of vis){ const k = p.categoria || "Sem categoria"; if(!porCat.has(k)) porCat.set(k, []); porCat.get(k).push(p); }
+  let h = `<div class="resumo"><h1>Catálogo online</h1><span class="cont num">${ps.length} produtos</span></div>${buscaHTML("Buscar produto")}`;
+  if(!vis.length) h += `<p class="vazio">Nenhum produto encontrado.</p>`;
+  for(const [cat, lista] of porCat){
+    h += `<h2 class="cat">${esc(cat)} <span class="n">${lista.length}</span></h2><div class="lista">${lista.map(p=>{
+      const obrig = [...new Set((p.itens_enxoval||[]).map(i=>i.concursos?.nome).filter(Boolean))].sort();
+      const cup = (p.cupom_produtos||[]).map(c=>c.cupons).filter(c=>c && c.ativo).map(c=>c.codigo);
+      return `<div class="reg">${foto(p.link_imagem, p.nome)}<div class="meio">
+        <div class="nome">${esc(p.nome)}</div>
+        <div class="ref">${esc(p.lojas?.nome || "Sem loja")}${p.lojas && p.lojas.ativo===false ? " (desativada)" : ""}${p.link_produto ? ` · <a href="${esc(p.link_produto)}" target="_blank" rel="noopener">Ver anúncio</a>` : ""}
+          <span class="tags">${cup.map(c=>tag("cupom "+c,"ini")).join("")}</span></div>
+        <div class="ref">${obrig.length ? "Obrigatório em: <b>" + esc(obrig.join(", ")) + "</b>" : "Só no catálogo"}</div>
+      </div><div class="dir">${p.preco != null ? `<b class="num">${brl(p.preco)}</b>` : `<span class="off">sem preço</span>`}</div></div>`; }).join("")}</div>`;
+  }
+  return h;
+}
+function vCupons(cs){
+  cs = cs.slice().sort((a,b)=>(b.ativo-a.ativo) || a.codigo.localeCompare(b.codigo));
+  return `<div class="resumo"><h1>Cupons</h1><span class="cont num">${cs.filter(c=>c.ativo).length} ativos de ${cs.length}</span></div>
+    ${cs.length ? cs.map(c=>{
+      const prods = (c.cupom_produtos||[]).map(x=>x.produtos_online?.nome).filter(Boolean).sort();
+      const its = (c.cupom_itens||[]).map(x=>x.itens_enxoval).filter(Boolean).map(i=>`${i.nome_padronizado} (${i.concursos?.nome||"?"})`).sort();
+      return `<div class="cupom"><div class="cod">${esc(c.codigo)} <span class="tags">${c.ativo ? tag("ativo") : tag("desativado","off")}</span></div>
+        <p>${esc(c.lojas?.nome || "Sem loja")}${c.texto ? ` · “${esc(c.texto)}”` : ""}</p>
+        ${prods.length ? `<p><b>Catálogo online</b></p><ul>${prods.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>` : ""}
+        ${its.length ? `<p><b>Calculadora</b></p><ul>${its.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>` : ""}
+        ${!prods.length && !its.length ? `<p>Nenhum produto vinculado.</p>` : ""}</div>`; }).join("") : `<p class="vazio">Nenhum cupom cadastrado.</p>`}`;
+}
+function telaDados(){
+  cabecalho(true);
+  const cache = D.cache[D.sub], pronto = cache && (D.sub !== "itens" || D.cache.concursos);
+  let corpo = `<p class="vazio">Carregando…</p>`;
+  if(pronto){
+    corpo = D.sub === "concursos" ? vConcursos(cache) : D.sub === "itens" ? vItens(cache, D.cache.concursos)
+          : D.sub === "lojas" ? vLojas(cache) : D.sub === "online" ? vOnline(cache) : vCupons(cache);
+    corpo += avisoEd;
+  }
+  $("#tela").innerHTML = abasHTML() + subsHTML() + corpo;
+}
+async function abrirDados(){
+  telaDados();
+  const sub = D.sub;
+  try{ await dados(sub); }
+  catch(e){ console.warn(e); if(A.aba==="dados" && D.sub===sub) aviso("Não foi possível carregar os dados.", true); return; }
+  if(A.aba === "dados" && D.sub === sub) telaDados();
+}
+
 /* ---------------- eventos ---------------- */
+document.addEventListener("input", ev=>{
+  if(ev.target.id !== "dBusca") return;
+  D.busca = ev.target.value; const pos = ev.target.selectionStart;
+  telaDados(); const b = $("#dBusca"); if(b){ b.focus(); b.setSelectionRange(pos, pos); }
+});
 document.addEventListener("submit", async ev=>{
   if(ev.target.id !== "fConvite") return;
   ev.preventDefault();
@@ -288,6 +457,12 @@ document.addEventListener("change", async ev=>{
 document.addEventListener("click", async ev=>{
   const a = ev.target.closest(".abas button");
   if(a && a.dataset.aba !== A.aba){ A.aba = a.dataset.aba; abrirAba(); window.scrollTo(0,0); return; }
+  const sb_ = ev.target.closest("button[data-sub]");
+  if(sb_ && sb_.dataset.sub !== D.sub){ D.sub = sb_.dataset.sub; D.busca = ""; abrirDados(); return; }
+  const dc = ev.target.closest("button[data-dconc]");
+  if(dc){ D.conc = dc.dataset.dconc; telaDados(); return; }
+  const dt = ev.target.closest("button[data-dtipo]");
+  if(dt){ D.tipo = dt.dataset.dtipo; telaDados(); return; }
   const pd = ev.target.closest("button[data-dias]");
   if(pd){ periodoPreset(+pd.dataset.dias); abrirMetricas(); return; }
   const rl = ev.target.closest("tr[data-loja]");
@@ -304,7 +479,7 @@ document.addEventListener("click", async ev=>{
   }
 });
 $("#btnSair").addEventListener("click", async ()=>{
-  A.eu = null; await sb.auth.signOut(); A.papel = null; A.equipe = null; ADM.met = null; ADM.loja = ""; ADM.lojas = []; telaLogin();
+  A.eu = null; await sb.auth.signOut(); A.papel = null; A.equipe = null; ADM.met = null; ADM.loja = ""; ADM.lojas = []; D.cache = {}; telaLogin();
 });
 
 /* ---------------- ciclo ---------------- */
@@ -335,7 +510,7 @@ sb.auth.onAuthStateChange((ev, sessao)=>{
   if(!A.eu || definindoSenha) return;
   const id = sessao?.user?.id || null;
   if(id === A.eu.id) return;
-  A.papel = null; A.equipe = null; ADM.met = null;
+  A.papel = null; A.equipe = null; ADM.met = null; D.cache = {};
   if(!id){ A.eu = null; aviso("Você saiu da conta em outra aba."); setTimeout(()=>telaLogin(), 0); return; }
   aviso(`Agora você está como ${sessao.user.email} (login feito em outra aba).`);
   setTimeout(iniciar, 0);
