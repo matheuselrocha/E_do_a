@@ -487,12 +487,94 @@ if cp_rows:
     else:
         print("  AVISO: tabela cupons não existe — rode o 09_dados_completos.sql (só conferência).")
 
+# ---- 8) bizus (abas "<concurso> - Bizus para o CFP": Categoria | Link [| Concurso] [| Ativo]) ----
+# O texto da coluna Link é um HIPERLINK: o CSV não traz o endereço, então a aba é lida pela
+# API do Google com a conta de serviço do robô de preços (GOOGLE_CREDENTIALS ou
+# bot-precos/credenciais.json). Sem credencial/biblioteca: pula SEM apagar nada no banco.
+# Concurso: coluna "Concurso" (se houver) ou o início do nome da aba ("CBMDF - Bizus..." -> CBMDF - 2025).
+BIZUS_AVISOS, BIZUS_N = [], {}
+def ler_abas_bizus():
+    cred = os.environ.get("GOOGLE_CREDENTIALS") or \
+           os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bot-precos", "credenciais.json")
+    if not os.path.exists(cred): return None, "credencial do Google não encontrada"
+    try:
+        from google.oauth2.service_account import Credentials
+        from google.auth.transport.requests import Request
+    except ImportError:
+        return None, "biblioteca google-auth não instalada (pip install google-auth requests)"
+    cr = Credentials.from_service_account_file(cred, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
+    cr.refresh(Request())
+    def api(q):
+        p = subprocess.run(["curl", "-sS", "--fail-with-body", "https://sheets.googleapis.com/v4/spreadsheets/" + PLANILHA + q,
+                            "-H", "Authorization: Bearer " + cr.token], capture_output=True, text=True)
+        if p.returncode: raise RuntimeError(p.stdout[:200])
+        return json.loads(p.stdout)
+    meta = api("?fields=sheets.properties.title")
+    abas = [x["properties"]["title"] for x in meta.get("sheets", []) if re.search(r"bizus", x["properties"]["title"], re.I)]
+    out = []
+    for t in abas:
+        d = api("?includeGridData=true&ranges=" + urllib.parse.quote("'" + t.replace("'", "''") + "'") +
+                "&fields=" + urllib.parse.quote("sheets.data.rowData.values(formattedValue,hyperlink,textFormatRuns.format.link.uri)"))
+        linhas = []
+        for r in d["sheets"][0]["data"][0].get("rowData", []):
+            cel = []
+            for v in r.get("values", []):
+                link = v.get("hyperlink") or next((x["format"]["link"]["uri"] for x in v.get("textFormatRuns", [])
+                                                   if x.get("format", {}).get("link", {}).get("uri")), None)
+                cel.append(((v.get("formattedValue") or "").strip(), link))
+            linhas.append(cel)
+        out.append((t, linhas))
+    return out, None
+
+def concurso_da_aba(titulo, rotulos):
+    pre = norm(re.split(r"\s*[-–—]\s*bizus", titulo, flags=re.I)[0])
+    exatos = [c for c in conc_id if norm(c) == pre or norm(rotulos.get(c) or "") == pre]
+    if len(exatos) == 1: return exatos[0]
+    comeca = [c for c in conc_id if norm(c).startswith(pre + " ")]
+    ativos = [c for c in comeca if ATIVO.get(c, True)]
+    return (ativos or comeca)[0] if len(ativos or comeca) == 1 else None
+
+COL_BIZUS = tem_coluna("bizus", "titulo")                       # 10_bizus.sql
+try:
+    abas_bizus, motivo = ler_abas_bizus() if COL_BIZUS else (None, "tabela bizus não existe — rode o 10_bizus.sql")
+except Exception as e:                                          # API fora do ar etc.: não mexe no banco
+    abas_bizus, motivo = None, f"erro ao ler pela API do Google: {e}"
+if abas_bizus is None:
+    print(f"  AVISO: bizus não sincronizados ({motivo}).")
+else:
+    rotulos = {c["nome"]: c.get("rotulo") for c in (_req("GET", "/rest/v1/concursos?select=nome,rotulo") or [])}
+    biz_rows, vistos_biz = [], set()
+    for titulo, linhas in abas_bizus:
+        if not linhas: continue
+        h = [t for t, _ in linhas[0]]
+        iCat, iLink = achar(h, "Categoria"), achar(h, "Link", "Título", "Titulo")
+        iBC, iBA = achar(h, "Concurso"), achar(h, "Ativo", "Status de Ativação")
+        if iCat < 0 or iLink < 0: BIZUS_AVISOS.append(f"aba '{titulo}': faltam as colunas Categoria e Link"); continue
+        conc_aba = concurso_da_aba(titulo, rotulos)
+        for n, r in enumerate(linhas[1:], start=2):
+            cel = lambda i: r[i] if 0 <= i < len(r) else ("", None)
+            cat, (tit, link) = cel(iCat)[0], cel(iLink)
+            if not tit: continue
+            if not link and re.match(r"https?://", tit): link = tit
+            if not link: BIZUS_AVISOS.append(f"aba '{titulo}' linha {n}: '{tit}' sem link"); continue
+            cnome = cel(iBC)[0] if iBC >= 0 and cel(iBC)[0] else conc_aba
+            cnome = VALID_NORM.get(norm(cnome or ""), cnome)
+            if cnome not in conc_id:
+                BIZUS_AVISOS.append(f"aba '{titulo}' linha {n}: concurso não identificado ('{cnome or titulo}')"); continue
+            k = (conc_id[cnome], cat or "Outros", tit)
+            if k in vistos_biz: BIZUS_AVISOS.append(f"aba '{titulo}' linha {n}: '{tit}' repetido na mesma categoria"); continue
+            vistos_biz.add(k); BIZUS_N[cnome] = BIZUS_N.get(cnome, 0) + 1
+            biz_rows.append({"concurso_id": k[0], "categoria": k[1], "titulo": tit, "link": link, "ordem": len(biz_rows) + 1,
+                             "ativo": sim(cel(iBA)[0]) if iBA >= 0 and cel(iBA)[0] else True})
+    sincronizar("bizus", biz_rows, ["concurso_id", "categoria", "titulo"])
+    print(f"  bizus: {len(biz_rows)}  ({', '.join(f'{c}: {n}' for c, n in BIZUS_N.items()) or 'nenhum'}) — abas: {[t for t, _ in abas_bizus]}")
+
 # ============================================================================ CONFERÊNCIA
 print("\n================ CONFERÊNCIA ================")
 print("  sincronização (gravadas / removidas por terem saído da planilha):")
 for t, (g, rm) in SYNC.items(): print(f"    {t:16s}: {g} / {rm}")
 for t in ["concursos", "lojas", "loja_concurso", "produtos_online", "itens_enxoval", "precos"] + \
-         (["cupons", "cupom_produtos", "cupom_itens"] if COL_CUPONS else []):
+         (["cupons", "cupom_produtos", "cupom_itens"] if COL_CUPONS else []) + (["bizus"] if COL_BIZUS else []):
     print(f"  {t:16s}: {count(t)} linhas")
 print("\n  itens por concurso:", dict(Counter(conc for conc, _ in item_id)))   # item_id já é único por (concurso, nome)
 print(f"  itens ligados ao catálogo (produto_online_id): {ligados}")
@@ -512,6 +594,9 @@ if not CONC_DESCONHECIDO: print("    nenhum 🎉")
 print(f"\n  CUPONS COM PRODUTO NÃO ENCONTRADO ({len(cupons_sem_produto)}) — o balão não aparece; confira o nome exato:")
 for cod, nm in cupons_sem_produto: print(f"    - {cod}: '{nm}'")
 if not cupons_sem_produto: print("    nenhum 🎉")
+if BIZUS_AVISOS:
+    print(f"\n  BIZUS COM PROBLEMA ({len(BIZUS_AVISOS)}):")
+    for x in BIZUS_AVISOS: print("    -", x)
 if cupons_sem_loja:
     print(f"\n  CUPONS COM LOJA NÃO ENCONTRADA ({len(cupons_sem_loja)}) — confira o nome exato na aba Contatos:")
     for cod, lj in cupons_sem_loja: print(f"    - {cod}: '{lj}'")

@@ -23,6 +23,10 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
 - `09_dados_completos.sql` — etapa 1 do backend: o que só existia na planilha/site ganha lugar no banco —
   `concursos` (botão itens iniciais + textos do `CFG`), `lojas.estado/cidade`, `itens_enxoval.feminino`, tabelas
   `cupons`, `cupom_produtos`, `cupom_itens` e o histórico `alteracoes` (quem/quando/antes/depois, por gatilho). Rode 1x.
+- `10_bizus.sql` — tabela `bizus` (links informativos por concurso: categoria, título, link, ordem). Rode 1x.
+  A importação lê as abas cujo nome contém "Bizus" pela **API do Google** (os links são hiperlinks; o CSV não traz o
+  endereço) — precisa de `google-auth requests` e da credencial do robô (`GOOGLE_CREDENTIALS` ou `bot-precos/credenciais.json`);
+  sem isso, pula os bizus sem apagar nada. Concurso = coluna "Concurso" ou início do nome da aba ("CBMDF - Bizus para o CFP").
 - `conferir.py` — conferência planilha × banco (só lê): abas Concursos, Contatos e Cupons campo a campo.
   `set -a; . migracao/.env; set +a; python3 migracao/conferir.py` → "✅ Planilha e banco iguais."
 - `migrate_supabase.py` — o importador (lê a planilha ao vivo e **sincroniza**: atualiza pelo nome,

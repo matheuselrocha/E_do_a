@@ -285,12 +285,13 @@ async function equipeFn(corpo){
 /* ---------------- aba Dados (somente leitura — etapa 3 do backend) ----------------
    Mostra o que está no Supabase (vindo da planilha pela importação). A edição entra na etapa 5. */
 const D = { sub: "concursos", cache: {}, conc: "", busca: "", tipo: "" };
-const SUBS = [["concursos","Concursos"],["itens","Itens"],["lojas","Lojas"],["online","Online"],["cupons","Cupons"]];
+const SUBS = [["concursos","Concursos"],["itens","Itens"],["lojas","Lojas"],["online","Online"],["cupons","Cupons"],["bizus","Bizus"]];
 const CONSULTAS = {
   concursos: () => sb.from("concursos").select("id, nome, estado, ativo, itens_iniciais, rotulo, ano, selo, msg_whatsapp, descricao, ordem, itens_enxoval(count), loja_concurso(count)"),
   itens:     () => sb.from("itens_enxoval").select("id, nome_padronizado, categoria, qtd_sugerida, link_foto, item_inicial, feminino, produto_online_id, concurso_id, precos(preco, lojas(nome, ativo, parceira))"),
   lojas:     () => sb.from("lojas").select("id, nome, tipo, telefone, instagram, link_maps, ativo, parceira, estado, cidade, loja_concurso(concursos(nome)), precos(count)"),
   online:    () => sb.from("produtos_online").select("id, categoria, nome, link_produto, link_imagem, preco, ativo, lojas(nome, ativo), itens_enxoval(concursos(nome)), cupom_produtos(cupons(codigo, ativo))"),
+  bizus:     () => sb.from("bizus").select("id, concurso_id, categoria, titulo, link, ordem, ativo").order("ordem"),
   cupons:    () => sb.from("cupons").select("id, codigo, texto, ativo, lojas(nome), cupom_produtos(produtos_online(nome)), cupom_itens(itens_enxoval(nome_padronizado, concursos(nome)))")
 };
 const ordConc = (a, b) => (a.ordem ?? 99) - (b.ordem ?? 99) || a.nome.localeCompare(b.nome);
@@ -303,7 +304,7 @@ const bate = (...txt) => !D.busca || norm(txt.join(" ")).includes(norm(D.busca))
 async function dados(sub){
   if(D.cache[sub]) return D.cache[sub];
   const pedidos = [CONSULTAS[sub]()];
-  if(sub === "itens") pedidos.push(dados("concursos"));
+  if(sub === "itens" || sub === "bizus") pedidos.push(dados("concursos"));
   const [r] = await Promise.all(pedidos);
   if(r.error) throw r.error;
   return (D.cache[sub] = r.data || []);
@@ -325,14 +326,49 @@ function vConcursos(cs){
       ${c.msg_whatsapp ? `<div class="ref">WhatsApp: "Sou do ${esc(c.msg_whatsapp)}"</div>` : ""}
     </div><div class="dir"><b class="num">${nInt(c.itens_enxoval)}</b>itens<br><span class="num">${nInt(c.loja_concurso)}</span> lojas</div></div>`).join("")}</div>`;
 }
+function concPills(cs){
+  if(!D.conc || !cs.some(c=>c.id===D.conc)) D.conc = (cs.find(c=>c.ativo) || cs[0] || {}).id || "";
+  return `<div class="concs" role="group" aria-label="Concurso">${cs.map(c=>`<button data-dconc="${esc(c.id)}" aria-pressed="${c.id===D.conc}">${esc(c.rotulo ? c.rotulo+" "+(c.ano||"") : c.nome)}${c.ativo?"":" (desativado)"}</button>`).join("")}</div>`;
+}
+// tipo do link, pelo endereço (só para a etiqueta)
+function tipoLink(u){
+  const x = String(u||"").toLowerCase();
+  if(/youtube\.com|youtu\.be/.test(x)) return "YouTube";
+  if(/\.pdf(\?|#|$)/.test(x)) return "PDF";
+  if(/drive\.google|docs\.google/.test(x)) return "Drive";
+  if(/spotify\.com/.test(x)) return "Spotify";
+  if(/instagram\.com/.test(x)) return "Instagram";
+  if(/apps\.apple\.com|play\.google\.com/.test(x)) return "App";
+  return "Site";
+}
+function vBizus(bs, cs){
+  cs = cs.slice().sort(ordConc);
+  const pills = concPills(cs);
+  const conc = cs.find(c=>c.id===D.conc);
+  const doConc = bs.filter(b=>b.concurso_id===D.conc);
+  const vis = doConc.filter(b=>bate(b.titulo, b.categoria, tipoLink(b.link)));
+  const porCat = new Map(); for(const b of vis){ if(!porCat.has(b.categoria)) porCat.set(b.categoria, []); porCat.get(b.categoria).push(b); }
+  let h = `<div class="resumo"><h1>Bizus</h1><span class="cont num">${doConc.length} link${doConc.length!==1?"s":""}</span></div>${pills}${buscaHTML("Buscar bizu")}`;
+  if(!doConc.length) h += `<p class="vazio">Nenhum bizu para ${esc(conc?.nome || "este concurso")}.<br><small>Na planilha: crie a aba “${esc(conc?.rotulo || conc?.nome || "")} - Bizus para o CFP” com as colunas Categoria e Link.</small></p>`;
+  else if(!vis.length) h += `<p class="vazio">Nenhum bizu encontrado.</p>`;
+  for(const [cat, lista] of porCat){
+    h += `<h2 class="cat">${esc(cat)} <span class="n">${lista.length}</span></h2><div class="lista">${lista.map(b=>{
+      let host = ""; try{ host = new URL(b.link).hostname.replace(/^www\./, ""); }catch(_){}
+      return `<div class="reg"><div class="meio">
+        <div class="nome">${esc(b.titulo)} <span class="tags">${tag(tipoLink(b.link),"azul")}${b.ativo ? "" : tag("oculto","off")}</span></div>
+        <div class="ref"><a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(host || b.link)}</a></div>
+      </div></div>`; }).join("")}</div>`;
+  }
+  return h;
+}
 function vItens(its, cs){
   cs = cs.slice().sort(ordConc);
-  if(!D.conc || !cs.some(c=>c.id===D.conc)) D.conc = (cs.find(c=>c.ativo) || cs[0] || {}).id || "";
+  const pills = concPills(cs);
   const doConc = its.filter(i=>i.concurso_id===D.conc);
   const vis = doConc.filter(i=>bate(i.nome_padronizado, i.categoria)).sort((a,b)=>(a.categoria||"").localeCompare(b.categoria||"") || a.nome_padronizado.localeCompare(b.nome_padronizado));
   const porCat = new Map(); for(const i of vis){ const k = i.categoria || "Sem categoria"; if(!porCat.has(k)) porCat.set(k, []); porCat.get(k).push(i); }
   let h = `<div class="resumo"><h1>Itens do enxoval</h1><span class="cont num">${doConc.length} itens</span></div>
-    <div class="concs" role="group" aria-label="Concurso">${cs.map(c=>`<button data-dconc="${esc(c.id)}" aria-pressed="${c.id===D.conc}">${esc(c.rotulo ? c.rotulo+" "+(c.ano||"") : c.nome)}${c.ativo?"":" (desativado)"}</button>`).join("")}</div>
+    ${pills}
     ${buscaHTML("Buscar item")}`;
   if(!vis.length) h += `<p class="vazio">Nenhum item encontrado.</p>`;
   for(const [cat, lista] of porCat){
@@ -398,11 +434,12 @@ function vCupons(cs){
 }
 function telaDados(){
   cabecalho(true);
-  const cache = D.cache[D.sub], pronto = cache && (D.sub !== "itens" || D.cache.concursos);
+  const cache = D.cache[D.sub], pronto = cache && (!["itens","bizus"].includes(D.sub) || D.cache.concursos);
   let corpo = `<p class="vazio">Carregando…</p>`;
   if(pronto){
     corpo = D.sub === "concursos" ? vConcursos(cache) : D.sub === "itens" ? vItens(cache, D.cache.concursos)
-          : D.sub === "lojas" ? vLojas(cache) : D.sub === "online" ? vOnline(cache) : vCupons(cache);
+          : D.sub === "lojas" ? vLojas(cache) : D.sub === "online" ? vOnline(cache)
+          : D.sub === "bizus" ? vBizus(cache, D.cache.concursos) : vCupons(cache);
     corpo += avisoEd;
   }
   $("#tela").innerHTML = abasHTML() + subsHTML() + corpo;

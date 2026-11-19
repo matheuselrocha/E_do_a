@@ -47,14 +47,16 @@ jobs:
           pip install -r bot-precos/requirements.txt
           python -m playwright install --with-deps chromium
 
+      # credencial do Google: usada pelo robô de preços e pela importação dos Bizus
+      # (os links da aba Bizus são hiperlinks, só legíveis pela API do Google)
       - name: Gerar credencial do Google (a partir do secret)
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.atualizar_precos) || github.event.schedule == '41 8 * * *' }}
         env:
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
         run: |
           if [ -z "$GOOGLE_CREDENTIALS_JSON" ]; then
-            echo "::error::Secret GOOGLE_CREDENTIALS_JSON não configurado. Veja bot-precos/README.md."
-            exit 1
+            # sem credencial: a importação segue (só pula os Bizus); o robô de preços falha sozinho
+            echo "::warning::Secret GOOGLE_CREDENTIALS_JSON não configurado. Veja bot-precos/README.md."
+            exit 0
           fi
           printf '%s' "$GOOGLE_CREDENTIALS_JSON" > bot-precos/credenciais.json
 
@@ -63,12 +65,16 @@ jobs:
         working-directory: bot-precos
         run: python atualizar_precos.py
 
-      - name: Apagar credencial do Google (sempre)
-        if: always()
-        run: rm -f bot-precos/credenciais.json
-
       # ---- Importação (SEMPRE roda: cron e manual) ----
+      - name: Instalar biblioteca do Google (leitura dos Bizus)
+        run: python -m pip install --quiet google-auth requests
+
       - name: Importar (planilha -> Supabase)
         env:
           SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
-        run: python3 migracao/migrate_supabase.py
+          GOOGLE_CREDENTIALS: bot-precos/credenciais.json
+        run: python migracao/migrate_supabase.py
+
+      - name: Apagar credencial do Google (sempre)
+        if: always()
+        run: rm -f bot-precos/credenciais.json
