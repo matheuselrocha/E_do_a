@@ -188,6 +188,15 @@ def ler_itens_tab(rows, item_headers, cat_por_nome):
     return itens, brancos, sem_catalogo
 
 # ============================================================================ RUN
+# Trava da virada (11_escrita.sql): depois que o painel passa a ser a fonte dos dados,
+# a planilha não pode mais sobrescrever o banco. Sai sem erro (o agendamento não falha).
+if tem_coluna("configuracoes", "fonte_dados"):
+    cfg = _req("GET", "/rest/v1/configuracoes?select=fonte_dados") or []
+    if cfg and cfg[0].get("fonte_dados") == "painel":
+        print("Importação desligada: os dados agora são editados no painel (configuracoes.fonte_dados = 'painel').")
+        print("Nada foi alterado no banco.")
+        sys.exit(0)
+
 print("Baixando abas da planilha…")
 # ---- aba "Concursos": define os concursos importados e o flag "ativo" (Status de Ativação) ----
 ATIVO, ESTADO_CONC, INICIAIS = {}, {}, {}

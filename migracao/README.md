@@ -27,6 +27,11 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
   A importação lê as abas cujo nome contém "Bizus" pela **API do Google** (os links são hiperlinks; o CSV não traz o
   endereço) — precisa de `google-auth requests` e da credencial do robô (`GOOGLE_CREDENTIALS` ou `bot-precos/credenciais.json`);
   sem isso, pula os bizus sem apagar nada. Concurso = coluna "Concurso" ou início do nome da aba ("CBMDF - Bizus para o CFP").
+- `11_escrita.sql` — etapa 4: o painel grava **só por funções** `admin_salvar_*` / `admin_excluir_*` (concurso, loja,
+  item, preço, produto + `admin_produto_concursos`, cupom, bizu) e lê `admin_historico`. Exigem proprietário/administrador,
+  validam os campos (erro ENX02 com mensagem pronta) e respeitam a **trava** `configuracoes.fonte_dados`:
+  `planilha` (padrão) = painel não grava (ENX01); `painel` = painel grava e **a importação se recusa a rodar**.
+  Só o proprietário troca (`definir_fonte_dados`). Rode 1x.
 - `conferir.py` — conferência planilha × banco (só lê): abas Concursos, Contatos e Cupons campo a campo.
   `set -a; . migracao/.env; set +a; python3 migracao/conferir.py` → "✅ Planilha e banco iguais."
 - `migrate_supabase.py` — o importador (lê a planilha ao vivo e **sincroniza**: atualiza pelo nome,
