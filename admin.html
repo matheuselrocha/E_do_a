@@ -69,6 +69,9 @@ details[open]>summary{background:#FAF9F5}
 .form-ed .campo small{display:block;font-size:12px;color:var(--ink3);margin-top:3px}
 .form-ed .check{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:600;color:var(--ink2);min-height:44px;cursor:pointer}
 .form-ed .check input{width:20px;height:20px;accent-color:var(--fogo);flex:none}
+.form-ed .multi{border:1px solid var(--rule);border-radius:10px;padding:6px 12px 8px;margin:0}
+.form-ed .multi legend{font-size:13px;font-weight:600;color:var(--ink2);padding:0 4px}
+.form-ed .multi .check{min-height:38px;font-weight:500}
 .form-ed .acoes-ed{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
 .form-ed .acoes-ed .btn{min-height:44px}
 .form-ed .acoes-ed .excluir{margin-left:auto;background:transparent;color:var(--erro);border:1px solid #E7B9B5}
@@ -324,7 +327,7 @@ const SUBS = [["concursos","Concursos"],["itens","Itens"],["lojas","Lojas"],["on
 const CONSULTAS = {
   concursos: () => sb.from("concursos").select("id, nome, estado, ativo, itens_iniciais, rotulo, ano, selo, msg_whatsapp, descricao, ordem, itens_enxoval(count), loja_concurso(count)"),
   itens:     () => sb.from("itens_enxoval").select("id, nome_padronizado, categoria, qtd_sugerida, link_foto, item_inicial, feminino, produto_online_id, concurso_id, precos(preco, lojas(nome, ativo, parceira))"),
-  lojas:     () => sb.from("lojas").select("id, nome, tipo, telefone, instagram, link_maps, ativo, parceira, estado, cidade, loja_concurso(concursos(nome)), precos(count)"),
+  lojas:     () => sb.from("lojas").select("id, nome, tipo, telefone, instagram, link_maps, ativo, parceira, estado, cidade, loja_concurso(concurso_id, concursos(nome)), precos(count)"),
   online:    () => sb.from("produtos_online").select("id, categoria, nome, link_produto, link_imagem, preco, ativo, lojas(nome, ativo), itens_enxoval(concursos(nome)), cupom_produtos(cupons(codigo, ativo))"),
   bizus:     () => sb.from("bizus").select("id, concurso_id, categoria, titulo, link, ordem, ativo").order("ordem"),
   cupons:    () => sb.from("cupons").select("id, codigo, texto, ativo, lojas(nome), cupom_produtos(produtos_online(nome)), cupom_itens(itens_enxoval(nome_padronizado, concursos(nome)))")
@@ -355,7 +358,7 @@ const avisoEd = () => podeEditar() ? "" : `<p class="aviso-ed">Somente leitura. 
    que conferem permissão, trava e validações; a tela só mostra a mensagem que o banco devolver. ---- */
 const FORMS = {
   concurso: {
-    rotulo: "concurso", cache: ["concursos", "itens", "bizus"],
+    rotulo: "concurso", fem: false, cache: ["concursos", "itens", "bizus"], novo: { ativo: false },
     salvar: "admin_salvar_concurso", excluir: "admin_excluir_concurso",
     campos: [
       { k: "nome", rot: "Nome", req: true, ph: "CBMDF - 2025", largo: true, ajuda: "Igual ao usado nas abas da planilha." },
@@ -369,15 +372,40 @@ const FORMS = {
       { k: "ativo", rot: "Ativo (aparece no site)", tipo: "check" },
       { k: "itens_iniciais", rot: "Botão “Itens iniciais”", tipo: "check" }
     ]
+  },
+  loja: {
+    rotulo: "loja", fem: true, cache: ["lojas", "concursos", "itens", "online", "cupons"], novo: { tipo: "fisica", ativo: true },
+    salvar: "admin_salvar_loja", excluir: "admin_excluir_loja",
+    antes: async () => { await dados("concursos"); },                          // opções de concursos atendidos
+    prep: l => ({ ...l, concursos: (l.loja_concurso || []).map(x => x.concurso_id) }),
+    campos: [
+      { k: "nome", rot: "Nome", req: true, ph: "Demir Fardas Militares", largo: true, ajuda: "Igual ao da aba Contatos da planilha." },
+      { k: "tipo", rot: "Tipo", tipo: "select", opcoes: () => [["fisica", "Loja física"], ["online", "Loja online"]] },
+      { k: "telefone", rot: "WhatsApp / telefone", ph: "61 98765-4321", ajuda: "Com DDD." },
+      { k: "instagram", rot: "Instagram", ph: "@perfil" },
+      { k: "link_maps", rot: "Link do mapa", ph: "https://maps.google.com/…" },
+      { k: "cidade", rot: "Cidade", ph: "Brasília" },
+      { k: "estado", rot: "Estado", ph: "Distrito Federal" },
+      { k: "concursos", rot: "Concursos que atende", tipo: "multi", largo: true,
+        opcoes: () => (D.cache.concursos || []).slice().sort(ordConc).map(c => [c.id, c.nome + (c.ativo ? "" : " (desativado)")]) },
+      { k: "ativo", rot: "Ativa (aparece no site)", tipo: "check" },
+      { k: "parceira", rot: "Parceira (preços pelo painel da loja)", tipo: "check" }
+    ]
   }
 };
 function campoHTML(c, v){
   const id = "ed_" + c.k, cls = c.largo ? "largo" : "";
+  if(c.tipo === "multi"){
+    const marc = new Set(v || []);
+    return `<fieldset class="multi ${cls}" id="${id}"><legend>${esc(c.rot)}</legend>
+      ${c.opcoes().map(([val, txt]) => `<label class="check"><input type="checkbox" value="${esc(val)}" ${marc.has(val) ? "checked" : ""}> ${esc(txt)}</label>`).join("")
+        || `<small>Nenhuma opção.</small>`}</fieldset>`;
+  }
   if(c.tipo === "check")
     return `<label class="check ${cls}"><input type="checkbox" id="${id}" data-k="${c.k}" ${v ? "checked" : ""}> ${esc(c.rot)}</label>`;
   if(c.tipo === "select")
     return `<label class="campo ${cls}"><span>${esc(c.rot)}${c.req ? " *" : ""}</span><select id="${id}" data-k="${c.k}">
-      ${c.opcoes.map(([val, txt]) => `<option value="${esc(val)}" ${String(v ?? "") === String(val) ? "selected" : ""}>${esc(txt)}</option>`).join("")}</select>
+      ${c.opcoes().map(([val, txt]) => `<option value="${esc(val)}" ${String(v ?? "") === String(val) ? "selected" : ""}>${esc(txt)}</option>`).join("")}</select>
       ${c.ajuda ? `<small>${esc(c.ajuda)}</small>` : ""}</label>`;
   return `<label class="campo ${cls}"><span>${esc(c.rot)}${c.req ? " *" : ""}</span>
     <input id="${id}" data-k="${c.k}" type="${c.tipo === "number" ? "number" : "text"}" ${c.tipo === "number" ? 'inputmode="numeric"' : ""}
@@ -399,7 +427,8 @@ function lerForm(){
   const f = FORMS[D.form.ent], p = D.form.id ? { id: D.form.id } : {};
   for(const c of f.campos){
     const el = document.getElementById("ed_" + c.k); if(!el) continue;
-    p[c.k] = c.tipo === "check" ? el.checked : c.tipo === "number" ? (el.value === "" ? null : Number(el.value)) : el.value.trim();
+    p[c.k] = c.tipo === "multi" ? [...el.querySelectorAll("input:checked")].map(i => i.value)
+           : c.tipo === "check" ? el.checked : c.tipo === "number" ? (el.value === "" ? null : Number(el.value)) : el.value.trim();
   }
   return p;
 }
@@ -410,9 +439,12 @@ function erroBanco(e){
   if(e.code === "ENX01" || e.code === "ENX02") return e.message;
   return "Não foi possível salvar. Tente de novo.";
 }
-function abrirForm(ent, id){
-  const lista = { concurso: D.cache.concursos }[ent] || [];
-  D.form = { ent, id: id || null, dados: id ? (lista.find(x => x.id === id) || {}) : { ativo: false } };
+async function abrirForm(ent, id){
+  const f = FORMS[ent];
+  if(f.antes) await f.antes();
+  const lista = { concurso: D.cache.concursos, loja: D.cache.lojas }[ent] || [];
+  const atual = id ? (lista.find(x => x.id === id) || {}) : { ...(f.novo || {}) };
+  D.form = { ent, id: id || null, dados: f.prep && id ? f.prep(atual) : atual };
   telaDados(); window.scrollTo(0, 0);
   requestAnimationFrame(() => { const i = document.querySelector("#fEd input"); if(i) i.focus(); });
 }
@@ -429,17 +461,19 @@ async function salvarForm(){
   const b = $("#fEd button[type=submit]"); b.disabled = true; b.textContent = "Salvando…";
   const { error } = await sb.rpc(f.salvar, { p });
   if(error){ console.warn(error); b.disabled = false; b.textContent = "Salvar"; aviso(erroBanco(error), true); return; }
-  aviso(`${f.rotulo[0].toUpperCase() + f.rotulo.slice(1)} salvo.`);
+  aviso(`${maiusc(f.rotulo)} ${f.fem ? "salva" : "salvo"}.`);
   fecharForm(true);
 }
 async function excluirForm(){
   const f = FORMS[D.form.ent], nome = D.form.dados?.nome || D.form.dados?.codigo || D.form.dados?.titulo || "este registro";
-  if(!confirm(`Excluir ${f.rotulo} “${nome}”?\nSe houver itens ou lojas ligados, ele será só desativado.`)) return;
+  if(!confirm(`Excluir ${f.rotulo} “${nome}”?\nSe houver dados ligados (itens, preços, métricas…), ${f.fem ? "ela" : "ele"} será só ${f.fem ? "desativada" : "desativado"}.`)) return;
   const { data, error } = await sb.rpc(f.excluir, { p_id: D.form.id });
   if(error){ console.warn(error); aviso(erroBanco(error), true); return; }
-  aviso(String(data).startsWith("desativad") ? `Tem dados ligados: ${f.rotulo} desativado (some do site, nada se perde).` : `${f.rotulo[0].toUpperCase() + f.rotulo.slice(1)} excluído.`);
+  aviso(String(data).startsWith("desativad") ? `Tem dados ligados: ${f.rotulo} ${f.fem ? "desativada" : "desativado"} (some do site, nada se perde).`
+                                               : `${maiusc(f.rotulo)} ${f.fem ? "excluída" : "excluído"}.`);
   fecharForm(true);
 }
+const maiusc = t => t[0].toUpperCase() + t.slice(1);
 const btnEditar = (ent, id) => podeEditar() ? `<button class="btn-ed" data-editar="${ent}" data-id="${esc(id)}">Editar</button>` : "";
 const btnNovo = ent => podeEditar() ? `<button class="btn-ed" data-novo="${ent}">Novo</button>` : "";
 
@@ -515,7 +549,7 @@ function vItens(its, cs){
 function vLojas(ls){
   const vis = ls.filter(l=>(!D.tipo || l.tipo===D.tipo) && bate(l.nome, l.cidade, l.estado))
                 .sort((a,b)=>(b.ativo-a.ativo) || a.nome.localeCompare(b.nome));
-  return `<div class="resumo"><h1>Lojas</h1><span class="cont num">${ls.filter(l=>l.ativo).length} ativas de ${ls.length}</span></div>
+  return `<div class="resumo"><h1>Lojas</h1><span class="cont num">${ls.filter(l=>l.ativo).length} ativas de ${ls.length}</span>${btnNovo("loja")}</div>
     <div class="concs" role="group" aria-label="Tipo">${[["","Todas"],["fisica","Físicas"],["online","Online"]].map(([k,t])=>`<button data-dtipo="${k}" aria-pressed="${D.tipo===k}">${t}</button>`).join("")}</div>
     ${buscaHTML("Buscar loja")}
     ${vis.length ? `<div class="lista">${vis.map(l=>{
@@ -527,7 +561,7 @@ function vLojas(ls){
         ${l.cidade || l.estado ? `<div class="ref">${esc([l.cidade, l.estado].filter(Boolean).join(" · "))}</div>` : ""}
         ${contato ? `<div class="ref">${contato}</div>` : ""}
         <div class="ref">${concs.length ? esc(concs.join(", ")) : "Nenhum concurso"}</div>
-      </div><div class="dir"><b class="num">${nInt(l.precos)}</b>preços</div></div>`; }).join("")}</div>` : `<p class="vazio">Nenhuma loja encontrada.</p>`}`;
+      </div><div class="dir"><b class="num">${nInt(l.precos)}</b>preços${podeEditar() ? `<br>${btnEditar("loja", l.id)}` : ""}</div></div>`; }).join("")}</div>` : `<p class="vazio">Nenhuma loja encontrada.</p>`}`;
 }
 function vOnline(ps){
   const vis = ps.filter(p=>bate(p.nome, p.categoria, p.lojas?.nome)).sort((a,b)=>(a.categoria||"").localeCompare(b.categoria||"") || a.nome.localeCompare(b.nome));
