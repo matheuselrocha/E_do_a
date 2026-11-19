@@ -63,20 +63,32 @@ JS_MERCADOLIVRE = r"""
   //   - efetivo/atual : <span class="... andes-money-amount--cents-superscript">
   // Regra: pular todo preço marcado como "previous" (riscado) e pegar a 1ª
   // fração restante -> é o preço EFETIVO do produto-alvo. (Só a parte inteira.)
+  // Devolve também o TÍTULO do anúncio de onde o preço saiu: se o link vencer, o
+  // ML manda para a lista do perfil e o 1º preço é de OUTRO produto — o Python
+  // confere o título contra o nome da planilha antes de aceitar.
+  const tituloDe = (el) => {
+    const h1 = document.querySelector('h1.ui-pdp-title, .ui-pdp-title');
+    if (h1 && h1.textContent.trim() && !location.pathname.includes('/social/')) return h1.textContent.trim();
+    let c = el;
+    for (let i = 0; i < 10 && c; i++) {
+      c = c.parentElement;
+      const t = c && c.querySelector('a[title], h2, h3, [class*="title"]');
+      if (t) return (t.getAttribute('title') || t.textContent || '').trim();
+    }
+    return '';
+  };
   const amounts = Array.from(document.querySelectorAll('.andes-money-amount'));
   for (const a of amounts) {
     const cls = (a.className && a.className.toString) ? a.className.toString() : '';
     if (/andes-money-amount--previous/.test(cls)) continue;      // pula riscado
     if (a.tagName && a.tagName.toLowerCase() === 's') continue;  // pula <s>
     const frac = a.querySelector('.andes-money-amount__fraction');
-    if (frac && frac.textContent.trim()) return frac.textContent.trim();
+    if (frac && frac.textContent.trim()) return { preco: frac.textContent.trim(), titulo: tituloDe(a) };
   }
   // Fallback: metadado estruturado, se existir.
   const meta = document.querySelector('meta[itemprop="price"]');
-  if (meta && meta.content) return meta.content;
-  // Último recurso: primeira fração qualquer.
-  const any = document.querySelector('.andes-money-amount__fraction');
-  return any ? any.textContent.trim() : null;
+  if (meta && meta.content) return { preco: meta.content, titulo: tituloDe(meta) };
+  return null;
 }
 """
 
@@ -187,6 +199,36 @@ def parse_brl(texto: str):
         return None
 
 
+# ------------------------------------------------------- CONFERÊNCIAS ---------
+ULTIMO_TITULO = [""]          # título do anúncio de onde saiu o último preço (ML)
+VARIACAO_MAX = 0.6            # >60% pra cima ou pra baixo = suspeito, não grava
+
+# palavras genéricas não contam (muitos anúncios do perfil têm "tático", "preto"...)
+_GENERICAS = {"com", "para", "kit", "par", "pares", "unidade", "unidades", "tatica", "tatico", "taticas", "taticos",
+              "militar", "preto", "preta", "masculina", "masculino", "feminina", "feminino", "esportiva", "esportivo"}
+
+def _tokens(s):
+    import unicodedata
+    s = unicodedata.normalize("NFD", str(s or "").lower())
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+    out = set()
+    for t in re.findall(r"[a-z0-9]+", s):
+        if len(t) < 3 or t in _GENERICAS: continue
+        out.add(re.sub(r"(oes|aes|es|s)$", "", t) if len(t) > 4 else t)   # plural simples: luvas = luva
+    return out
+
+def mesmo_produto(nome_planilha, titulo):
+    """True se o título do anúncio parece ser o produto da planilha (ao menos 40%
+    das palavras distintivas do nome da planilha aparecem no título)."""
+    a, b = _tokens(nome_planilha), _tokens(titulo)
+    if not a or not b: return True          # sem dado para comparar: não bloqueia
+    return len(a & b) / len(a) >= 0.4
+
+def preco_atual(txt):
+    try: return parse_brl(txt) if str(txt or "").strip() else None
+    except Exception: return None
+
+
 # ------------------------------------------------------------ SCRAPING --------
 def extrair_preco(page, plataforma: str):
     """Abre a URL já carregada e tenta extrair o preço, com pequenas retentativas."""
@@ -202,8 +244,10 @@ def extrair_preco(page, plataforma: str):
         except Exception as e:  # noqa: BLE001
             ultimo = None
         if ultimo:
-            valor = parse_brl(ultimo)
+            texto = ultimo.get("preco") if isinstance(ultimo, dict) else ultimo
+            valor = parse_brl(texto)
             if valor is not None:
+                ULTIMO_TITULO[0] = ultimo.get("titulo", "") if isinstance(ultimo, dict) else ""
                 return valor, None
         time.sleep(1)
     if ultimo:
@@ -297,7 +341,9 @@ def processar(args):
             plataforma = detectar_plataforma(
                 linha[i_plat] if i_plat < len(linha) else "", url
             )
-            nome = (linha[i_prod] if i_prod < len(linha) else "")[:45]
+            nome_inteiro = (linha[i_prod] if i_prod < len(linha) else "")
+            nome = nome_inteiro[:45]
+            atual = preco_atual(linha[i_preco] if i_preco < len(linha) else "")
 
             if not url:
                 continue
@@ -307,9 +353,18 @@ def processar(args):
 
             processadas += 1
             etiqueta = f"[{r:>3}] {plataforma[:12]:<12} {nome:<45}"
+            ULTIMO_TITULO[0] = ""
             try:
                 page.goto(url, wait_until="domcontentloaded", timeout=PAGE_TIMEOUT_MS)
                 valor, erro = extrair_preco(page, plataforma)
+                # link de afiliado vencido/produto indisponível: o ML manda para a LISTA do
+                # perfil (/social/<perfil>/lists) e o 1º preço é de outro produto
+                if valor is not None and re.search(r"/social/[^/?#]+/lists", page.url):
+                    valor, erro = None, "link levou à lista do perfil de afiliado (link vencido ou produto indisponível)"
+                elif valor is not None and not mesmo_produto(nome_inteiro, ULTIMO_TITULO[0]):
+                    valor, erro = None, f"anúncio diferente do produto: {ULTIMO_TITULO[0][:60]!r}"
+                elif valor is not None and atual and abs(valor - atual) / atual > VARIACAO_MAX and not args.aceitar_variacao:
+                    valor, erro = None, f"variação suspeita (R$ {atual:.0f} -> R$ {valor:.0f}); mantido o preço atual"
             except Exception as e:  # noqa: BLE001 — nunca deixa a execução quebrar
                 valor, erro = None, f"erro ao abrir: {type(e).__name__}"
 
@@ -343,6 +398,8 @@ def main():
     ap = argparse.ArgumentParser(description="Atualiza preços na aba 'Compras Online'.")
     ap.add_argument("--headful", action="store_true", help="mostra o navegador")
     ap.add_argument("--limit", type=int, default=0, help="processa só N linhas (teste)")
+    ap.add_argument("--aceitar-variacao", action="store_true",
+                    help=f"grava mesmo quando o preço muda mais de {int(VARIACAO_MAX*100)}%% (normalmente fica o atual)")
     ap.add_argument("--dry-run", action="store_true", help="extrai mas não grava")
     ap.add_argument("--todas", action="store_true",
                     help="processa TODAS as plataformas (padrão é só Mercado Livre)")
