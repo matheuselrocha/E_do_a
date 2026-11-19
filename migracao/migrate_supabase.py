@@ -190,10 +190,14 @@ def ler_itens_tab(rows, item_headers, cat_por_nome):
 # ============================================================================ RUN
 # Trava da virada (11_escrita.sql): depois que o painel passa a ser a fonte dos dados,
 # a planilha não pode mais sobrescrever o banco. Sai sem erro (o agendamento não falha).
+# fonte_dados() (12_trava_prazo.sql) já considera o prazo: janela de teste vencida = 'planilha'.
 if tem_coluna("configuracoes", "fonte_dados"):
-    cfg = _req("GET", "/rest/v1/configuracoes?select=fonte_dados") or []
-    if cfg and cfg[0].get("fonte_dados") == "painel":
-        print("Importação desligada: os dados agora são editados no painel (configuracoes.fonte_dados = 'painel').")
+    if tem_coluna("configuracoes", "liberado_ate"):
+        fonte = _req("POST", "/rest/v1/rpc/fonte_dados", {})
+    else:
+        fonte = ((_req("GET", "/rest/v1/configuracoes?select=fonte_dados") or [{}])[0]).get("fonte_dados")
+    if fonte == "painel":
+        print("Importação desligada: os dados estão sendo editados no painel (fonte_dados = 'painel').")
         print("Nada foi alterado no banco.")
         sys.exit(0)
 

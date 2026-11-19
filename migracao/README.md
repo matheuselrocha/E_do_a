@@ -32,6 +32,8 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
   validam os campos (erro ENX02 com mensagem pronta) e respeitam a **trava** `configuracoes.fonte_dados`:
   `planilha` (padrão) = painel não grava (ENX01); `painel` = painel grava e **a importação se recusa a rodar**.
   Só o proprietário troca (`definir_fonte_dados`). Rode 1x.
+- `12_trava_prazo.sql` — prazo de validade da trava (`liberado_ate`): `definir_fonte_dados('painel', 60)` libera por
+  60 min (janela de teste) e volta sozinha a `planilha`; sem minutos = permanente (virada). `status_edicao()` para o painel. Rode 1x.
 - `conferir.py` — conferência planilha × banco (só lê): abas Concursos, Contatos e Cupons campo a campo.
   `set -a; . migracao/.env; set +a; python3 migracao/conferir.py` → "✅ Planilha e banco iguais."
 - `migrate_supabase.py` — o importador (lê a planilha ao vivo e **sincroniza**: atualiza pelo nome,

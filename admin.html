@@ -60,6 +60,8 @@ details[open]>summary{background:#FAF9F5}
 .det td.n{text-align:right;white-space:nowrap;padding-left:10px}
 .det .off,.reg .off{color:var(--ink3)}
 .aviso-ed{font-size:12.5px;color:var(--ink3);margin:14px 2px 20px}
+.faixa-ed{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#3F5A24;background:#EEF3E7;border-radius:9px;padding:8px 11px;margin:0 0 12px}
+.faixa-ed::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--feito);flex:none}
 .cupom{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:12px 13px;margin:0 0 10px}
 .cupom .cod{font-family:"Barlow Semi Condensed",Barlow,sans-serif;font-weight:700;font-size:18px;letter-spacing:.04em}
 .cupom p{margin:4px 0 0;font-size:13.5px;color:var(--ink2)}
@@ -285,6 +287,23 @@ async function equipeFn(corpo){
 /* ---------------- aba Dados (somente leitura — etapa 3 do backend) ----------------
    Mostra o que está no Supabase (vindo da planilha pela importação). A edição entra na etapa 5. */
 const D = { sub: "concursos", cache: {}, conc: "", busca: "", tipo: "" };
+// Edição (etapa 5): só com a trava em 'painel' (status_edicao(), 11/12_*.sql) e papel proprietário/administrador.
+// Com a trava em 'planilha' a aba Dados fica exatamente como antes (somente leitura).
+const ED = { fonte: "planilha", ate: null, timer: 0 };
+const podeEditar = () => (A.papel === "proprietario" || A.papel === "admin") && ED.fonte === "painel"
+                         && (!ED.ate || new Date(ED.ate) > new Date());
+async function lerStatusEdicao(){
+  const { data, error } = await sb.rpc("status_edicao");
+  if(error){ ED.fonte = "planilha"; ED.ate = null; return; }        // função ausente/erro = somente leitura
+  ED.fonte = data?.fonte || "planilha"; ED.ate = data?.liberado_ate || null;
+  clearTimeout(ED.timer);
+  if(ED.ate){                                                       // prazo da janela: ao vencer, volta a somente leitura
+    const ms = new Date(ED.ate) - new Date();
+    if(ms > 0) ED.timer = setTimeout(()=>{ ED.fonte = "planilha"; ED.ate = null; if(A.aba === "dados") telaDados(); }, ms + 1000);
+  }
+}
+const horaBR = iso => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+const faixaEd = () => podeEditar() ? `<div class="faixa-ed">${ED.ate ? `Edição liberada até ${horaBR(ED.ate)}` : "Edição pelo painel ativa"}</div>` : "";
 const SUBS = [["concursos","Concursos"],["itens","Itens"],["lojas","Lojas"],["online","Online"],["cupons","Cupons"],["bizus","Bizus"]];
 const CONSULTAS = {
   concursos: () => sb.from("concursos").select("id, nome, estado, ativo, itens_iniciais, rotulo, ano, selo, msg_whatsapp, descricao, ordem, itens_enxoval(count), loja_concurso(count)"),
@@ -314,7 +333,7 @@ function subsHTML(){
     `<button data-sub="${k}" aria-pressed="${D.sub===k}">${t}</button>`).join("")}</div>`;
 }
 const buscaHTML = ph => `<input class="busca" id="dBusca" type="search" placeholder="${ph}" value="${esc(D.busca)}" aria-label="${ph}">`;
-const avisoEd = `<p class="aviso-ed">Somente leitura. Por enquanto as mudanças são feitas na planilha e chegam aqui na importação automática.</p>`;
+const avisoEd = () => podeEditar() ? "" : `<p class="aviso-ed">Somente leitura. Por enquanto as mudanças são feitas na planilha e chegam aqui na importação automática.</p>`;
 
 function vConcursos(cs){
   cs = cs.slice().sort(ordConc);
@@ -440,14 +459,14 @@ function telaDados(){
     corpo = D.sub === "concursos" ? vConcursos(cache) : D.sub === "itens" ? vItens(cache, D.cache.concursos)
           : D.sub === "lojas" ? vLojas(cache) : D.sub === "online" ? vOnline(cache)
           : D.sub === "bizus" ? vBizus(cache, D.cache.concursos) : vCupons(cache);
-    corpo += avisoEd;
+    corpo += avisoEd();
   }
-  $("#tela").innerHTML = abasHTML() + subsHTML() + corpo;
+  $("#tela").innerHTML = abasHTML() + subsHTML() + faixaEd() + corpo;
 }
 async function abrirDados(){
   telaDados();
   const sub = D.sub;
-  try{ await dados(sub); }
+  try{ await Promise.all([dados(sub), lerStatusEdicao()]); }
   catch(e){ console.warn(e); if(A.aba==="dados" && D.sub===sub) aviso("Não foi possível carregar os dados.", true); return; }
   if(A.aba === "dados" && D.sub === sub) telaDados();
 }
