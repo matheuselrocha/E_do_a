@@ -20,13 +20,18 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
 - `08_equipe.sql` — equipe da administração (`admin.html`): papéis `proprietario` / `admin` / `leitor`,
   `meu_papel()`, `pode_editar()`, `listar_equipe()`, `alterar_papel()`. O proprietário é definido só no SQL
   (ver o fim do arquivo); convites e remoções passam pela Edge Function `supabase/functions/equipe`. Rode 1x.
+- `09_dados_completos.sql` — etapa 1 do backend: o que só existia na planilha/site ganha lugar no banco —
+  `concursos` (botão itens iniciais + textos do `CFG`), `lojas.estado/cidade`, `itens_enxoval.feminino`, tabelas
+  `cupons`, `cupom_produtos`, `cupom_itens` e o histórico `alteracoes` (quem/quando/antes/depois, por gatilho). Rode 1x.
+- `conferir.py` — conferência planilha × banco (só lê): abas Concursos, Contatos e Cupons campo a campo.
+  `set -a; . migracao/.env; set +a; python3 migracao/conferir.py` → "✅ Planilha e banco iguais."
 - `migrate_supabase.py` — o importador (lê a planilha ao vivo e **sincroniza**: atualiza pelo nome,
   mantendo os IDs, e remove só o que saiu da planilha).
 - `importar.sh` — atalho para rodar o importador (carrega a chave do `.env`).
 - `.env.example` — modelo do arquivo de segredo (a chave real fica em `.env`, fora do git).
 
 ## Primeira vez (setup)
-1. No Supabase (SQL Editor), rode `01_schema.sql`, `02_online.sql`, `03_rls.sql`, `04_fase0.sql`, `05_painel.sql`, `06_metricas.sql`, `07_admin.sql` e `08_equipe.sql` (nessa ordem).
+1. No Supabase (SQL Editor), rode `01_schema.sql`, `02_online.sql`, `03_rls.sql`, `04_fase0.sql`, `05_painel.sql`, `06_metricas.sql`, `07_admin.sql`, `08_equipe.sql` e `09_dados_completos.sql` (nessa ordem).
 2. Copie `migracao/.env.example` para `migracao/.env` e cole a **service_role key**
    (Supabase → Settings → API → `service_role`). O `.env` **não** é versionado.
 

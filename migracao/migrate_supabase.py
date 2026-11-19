@@ -190,16 +190,18 @@ def ler_itens_tab(rows, item_headers, cat_por_nome):
 # ============================================================================ RUN
 print("Baixando abas da planilha…")
 # ---- aba "Concursos": define os concursos importados e o flag "ativo" (Status de Ativação) ----
-ATIVO, ESTADO_CONC = {}, {}
+ATIVO, ESTADO_CONC, INICIAIS = {}, {}, {}
 try:
     cc_rows = baixar_csv(GID["concursos"])
     cc_h = cc_rows[0]
     icE = achar(cc_h, "Estado"); icC = achar(cc_h, "Concurso"); icA = achar(cc_h, "Status de Ativação", "Status de Ativacao", "Ativo")
+    icI = achar(cc_h, "Botão de Itens Iniciais", "Botao de Itens Iniciais", "Itens Iniciais")
     for r in cc_rows[1:]:
         c = r[icC].strip() if 0 <= icC < len(r) else ""
         if not c: continue
         ATIVO[c] = sim(r[icA]) if 0 <= icA < len(r) else True     # sem a coluna = ativo (compatível)
         if 0 <= icE < len(r) and r[icE].strip(): ESTADO_CONC[c] = r[icE].strip()
+        INICIAIS[c] = 0 <= icI < len(r) and sim(r[icI])
 except SystemExit:
     print("  AVISO: aba Concursos indisponível — usando a lista fixa VALID.")
 if ATIVO: VALID = set(ATIVO)
@@ -250,8 +252,10 @@ estado_de = {}
 for r in enx_rows[1:] + equip_rows[1:]:
     if len(r) > 1 and r[1].strip() in VALID: estado_de[r[1].strip()] = (r[0].strip() or "Distrito Federal")
 estado_de.update(ESTADO_CONC)                            # a aba Concursos tem prioridade
+COL_CONC_INI = tem_coluna("concursos", "itens_iniciais")      # 09_dados_completos.sql
 conc_id = {c["nome"]: c["id"] for c in sincronizar("concursos",
-          [{"nome": c, "estado": estado_de.get(c, "Distrito Federal"), "ativo": ATIVO.get(c, True)} for c in sorted(VALID)],
+          [{"nome": c, "estado": estado_de.get(c, "Distrito Federal"), "ativo": ATIVO.get(c, True),
+            **({"itens_iniciais": INICIAIS.get(c, False)} if COL_CONC_INI else {})} for c in sorted(VALID)],
           ["nome"])}
 print(f"  concursos: {len(conc_id)} -> {list(conc_id)}")
 
@@ -262,6 +266,7 @@ parceiras_no_banco = {r["id"] for r in (_req("GET", "/rest/v1/lojas?select=id&pa
 ct_h = ct_rows[0]
 iNome = achar(ct_h, "Loja", "Nome"); iTel = achar(ct_h, "Telefone")
 iIns = achar(ct_h, "Instagram"); iMaps = achar(ct_h, "Maps")
+iEst = achar(ct_h, "Estado"); iCid = achar(ct_h, "Cidade/Município", "Cidade/Municipio", "Cidade", "Município")
 iC1 = achar(ct_h, "Concurso (1)", "Concurso 1", "Concurso"); iC2 = achar(ct_h, "Concurso (2)", "Concurso 2")
 iCAtv = achar(ct_h, "Status de Ativação", "Status de Ativacao", "Ativo")   # desmarcada = loja some do site
 iCPar = achar(ct_h, "Parceira", "Loja Parceira")   # contratante: preços vêm do painel, não da planilha
@@ -280,6 +285,8 @@ for r in ct_rows[1:]:
         v = r[ic].strip() if 0 <= ic < len(r) else ""
         if v.strip("-–— ") and v not in VALID: CONC_DESCONHECIDO.append((nome, v))   # "-" = vazio
     contato_por_loja[nome] = {"telefone": tel, "instagram": ig, "link_maps": maps, "concursos": concs,
+                              "estado": (r[iEst].strip() if 0 <= iEst < len(r) else "") or None,
+                              "cidade": (r[iCid].strip() if 0 <= iCid < len(r) else "") or None,
                               "ativo": sim(r[iCAtv]) if 0 <= iCAtv < len(r) else True,
                               "parceira": 0 <= iCPar < len(r) and sim(r[iCPar])}
 
@@ -305,13 +312,16 @@ for m in market_online:
         todas_lojas.add(m); (lojas_auto.append(m) if m not in contato_por_loja else None)
 
 COL_PARCEIRA = tem_coluna("lojas", "parceira")
+COL_CIDADE = tem_coluna("lojas", "cidade")                      # 09_dados_completos.sql
 if not COL_PARCEIRA: print("  AVISO: coluna lojas.parceira não existe — rode o 04_fase0.sql.")
 loja_id = {l["nome"]: l["id"] for l in sincronizar("lojas",
           [{"nome": n, "tipo": tipo_de(n), "telefone": contato_por_loja.get(n, {}).get("telefone"),
             "instagram": contato_por_loja.get(n, {}).get("instagram"),
             "link_maps": contato_por_loja.get(n, {}).get("link_maps"),
             "ativo": contato_por_loja.get(n, {}).get("ativo", True),   # fora da aba Contatos = ativa
-            **({"parceira": contato_por_loja.get(n, {}).get("parceira", False)} if COL_PARCEIRA else {})}
+            **({"parceira": contato_por_loja.get(n, {}).get("parceira", False)} if COL_PARCEIRA else {}),
+            **({"estado": contato_por_loja.get(n, {}).get("estado"),
+                "cidade": contato_por_loja.get(n, {}).get("cidade")} if COL_CIDADE else {})}
            for n in sorted(todas_lojas)],
           ["nome"], proteger=lambda r: r["id"] in parceiras_no_banco)}
 lojas_online = sorted([n for n in todas_lojas if tipo_de(n) == "online"])
@@ -431,11 +441,58 @@ preco_rows = list(preco_map.values())
 sincronizar("precos", preco_rows, ["item_id", "loja_id"], proteger=lambda r: r["loja_id"] in parceira_ids)
 print(f"  precos: {len(preco_rows)}  (lojas parceiras preservadas: {len(parceira_ids)})")
 
+# ---- 7) cupons (aba Cupons) -> cupons + cupom_produtos (catálogo) + cupom_itens (calculadora) ----
+# O site ainda lê a aba direto do Sheets (etapa 2 troca); aqui o banco passa a ter a mesma informação.
+# "Produtos" = nomes separados por ";", casados por nome normalizado (como o site faz).
+cupons_sem_produto, cupons_sem_loja = [], []
+COL_CUPONS = tem_coluna("cupons", "codigo")                    # 09_dados_completos.sql
+try:
+    cp_rows = baixar_csv(GID["cupons"])
+except SystemExit:
+    cp_rows = None; print("  AVISO: aba Cupons indisponível — cupons não sincronizados.")
+if cp_rows:
+    cph = cp_rows[0] if cp_rows else []
+    iCpCod, iCpAtv, iCpPr = achar(cph, "Código", "Codigo", "Cupom"), achar(cph, "Ativo"), achar(cph, "Produtos", "Produto")
+    iCpTx, iCpLj = achar(cph, "Texto do balão", "Texto do balao", "Texto"), achar(cph, "Loja")
+    prod_por_norm = defaultdict(list)
+    for nm, pid in prod_id.items(): prod_por_norm[norm(nm)].append(pid)
+    item_por_norm = defaultdict(list)
+    for (_, nm), iid in item_id.items(): item_por_norm[norm(nm)].append(iid)
+    loja_por_norm = {norm(n): i for n, i in loja_id.items()}
+    cupom_rows, alvos, vistos_cod = [], [], set()
+    for r in cp_rows[1:]:
+        if iCpCod < 0 or iCpCod >= len(r) or not r[iCpCod].strip(): continue
+        cod = r[iCpCod].strip()
+        if cod in vistos_cod: descartes.append(("cupom repetido (fica o 1º)", cod)); continue
+        vistos_cod.add(cod)
+        ativo = sim(r[iCpAtv]) if 0 <= iCpAtv < len(r) else True
+        lj = r[iCpLj].strip() if 0 <= iCpLj < len(r) else ""
+        if lj and norm(lj) not in loja_por_norm: cupons_sem_loja.append((cod, lj))
+        cupom_rows.append({"codigo": cod, "texto": (r[iCpTx].strip() if 0 <= iCpTx < len(r) else "") or None,
+                           "loja_id": loja_por_norm.get(norm(lj)), "ativo": ativo})
+        for nm in (r[iCpPr] if 0 <= iCpPr < len(r) else "").split(";"):
+            if not nm.strip(): continue
+            ps, its = prod_por_norm.get(norm(nm), []), item_por_norm.get(norm(nm), [])
+            if not ps and not its:
+                if ativo: cupons_sem_produto.append((cod, nm.strip()))
+                continue
+            alvos.append((cod, ps, its))
+    if COL_CUPONS:
+        cupom_id = {c["codigo"]: c["id"] for c in sincronizar("cupons", cupom_rows, ["codigo"])}
+        cp_p = {(cupom_id[c], p) for c, ps, _ in alvos for p in ps}
+        cp_i = {(cupom_id[c], i) for c, _, its in alvos for i in its}
+        sincronizar("cupom_produtos", [{"cupom_id": c, "produto_online_id": p} for c, p in sorted(cp_p)], ["cupom_id", "produto_online_id"])
+        sincronizar("cupom_itens", [{"cupom_id": c, "item_id": i} for c, i in sorted(cp_i)], ["cupom_id", "item_id"])
+        print(f"  cupons: {len(cupom_rows)}  (no catálogo: {len(cp_p)}; na calculadora: {len(cp_i)})")
+    else:
+        print("  AVISO: tabela cupons não existe — rode o 09_dados_completos.sql (só conferência).")
+
 # ============================================================================ CONFERÊNCIA
 print("\n================ CONFERÊNCIA ================")
 print("  sincronização (gravadas / removidas por terem saído da planilha):")
 for t, (g, rm) in SYNC.items(): print(f"    {t:16s}: {g} / {rm}")
-for t in ["concursos", "lojas", "loja_concurso", "produtos_online", "itens_enxoval", "precos"]:
+for t in ["concursos", "lojas", "loja_concurso", "produtos_online", "itens_enxoval", "precos"] + \
+         (["cupons", "cupom_produtos", "cupom_itens"] if COL_CUPONS else []):
     print(f"  {t:16s}: {count(t)} linhas")
 print("\n  itens por concurso:", dict(Counter(conc for conc, _ in item_id)))   # item_id já é único por (concurso, nome)
 print(f"  itens ligados ao catálogo (produto_online_id): {ligados}")
@@ -452,23 +509,12 @@ print(f"\n  CONCURSOS DESCONHECIDOS NA ABA CONTATOS ({len(CONC_DESCONHECIDO)}) �
 for loja, c in CONC_DESCONHECIDO: print(f"    - {loja}: '{c}'")
 if not CONC_DESCONHECIDO: print("    nenhum 🎉")
 
-# Aba Cupons: o site lê direto do Sheets; aqui só conferimos se os nomes em "Produtos" existem.
-cupons_sem_produto = []
-try:
-    cp_rows = baixar_csv(GID["cupons"])
-    cph = cp_rows[0] if cp_rows else []
-    iCpCod, iCpAtv, iCpPr = achar(cph, "Código", "Codigo", "Cupom"), achar(cph, "Ativo"), achar(cph, "Produtos", "Produto")
-    nomes_site = {norm(n) for _, n in item_id} | {norm(n) for n in prod_id}
-    for r in cp_rows[1:]:
-        if iCpCod < 0 or iCpPr < 0 or iCpCod >= len(r) or not r[iCpCod].strip(): continue
-        if 0 <= iCpAtv < len(r) and not sim(r[iCpAtv]): continue
-        for nm in (r[iCpPr] if iCpPr < len(r) else "").split(";"):
-            if nm.strip() and norm(nm) not in nomes_site: cupons_sem_produto.append((r[iCpCod].strip(), nm.strip()))
-except SystemExit:
-    print("  AVISO: aba Cupons indisponível — conferência de cupons pulada.")
 print(f"\n  CUPONS COM PRODUTO NÃO ENCONTRADO ({len(cupons_sem_produto)}) — o balão não aparece; confira o nome exato:")
 for cod, nm in cupons_sem_produto: print(f"    - {cod}: '{nm}'")
 if not cupons_sem_produto: print("    nenhum 🎉")
+if cupons_sem_loja:
+    print(f"\n  CUPONS COM LOJA NÃO ENCONTRADA ({len(cupons_sem_loja)}) — confira o nome exato na aba Contatos:")
+    for cod, lj in cupons_sem_loja: print(f"    - {cod}: '{lj}'")
 
 print(f"\n  DESCARTES ({len(descartes)}):")
 for motivo, det in descartes[:40]: print("    -", motivo, "->", det)
