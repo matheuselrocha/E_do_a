@@ -60,6 +60,10 @@ details[open]>summary{background:#FAF9F5}
 .det td.n{text-align:right;white-space:nowrap;padding-left:10px}
 .det .off,.reg .off{color:var(--ink3)}
 .ed-det{margin-top:10px;text-align:right}
+.sel-loja{display:block;margin:4px 0 12px}
+.sel-loja select{width:100%;min-height:46px;border:1px solid var(--rule);border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}
+.pr-link{width:100%;margin-top:6px;min-height:36px;border:1px solid var(--rule);border-radius:8px;padding:6px 10px;background:#fff;color:var(--ink);font-size:13px}
+.pr-link:focus{outline:2px solid var(--fogo);border-color:var(--fogo)}
 .form-ed h2 small{font-weight:400;color:var(--ink3);font-size:.75em}
 .aviso-ed{font-size:12.5px;color:var(--ink3);margin:14px 2px 20px}
 /* formulário de edição (etapa 5) */
@@ -108,6 +112,13 @@ details[open]>summary{background:#FAF9F5}
   </div>
 </header>
 <main id="tela"><p class="vazio">Carregando…</p></main>
+<div class="barra" id="barra" hidden>
+  <div class="in">
+    <div class="txt" id="barraTxt"></div>
+    <button class="btn ghost" id="prDescartar">Descartar</button>
+    <button class="btn fogo" id="prSalvar">Salvar</button>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="painel-comum.js?v=1"></script>
@@ -215,7 +226,7 @@ function abasHTML(){
   return `<div class="abas" role="tablist">${[["metricas","Métricas"],["dados","Dados"],["equipe","Equipe"]].map(([k,t])=>
     `<button role="tab" data-aba="${k}" aria-selected="${A.aba===k}">${t}</button>`).join("")}</div>`;
 }
-function abrirAba(){ A.aba === "equipe" ? abrirEquipe() : A.aba === "dados" ? abrirDados() : abrirMetricas(); }
+function abrirAba(){ barraPr(); A.aba === "equipe" ? abrirEquipe() : A.aba === "dados" ? abrirDados() : abrirMetricas(); }
 
 /* ---------------- aba Métricas (todas as lojas) ---------------- */
 const ADM = { lojas: [], loja: "", preset: 30, ini: "", fim: "", met: null, pedido: 0 };
@@ -307,7 +318,7 @@ async function equipeFn(corpo){
 
 /* ---------------- aba Dados (somente leitura — etapa 3 do backend) ----------------
    Mostra o que está no Supabase (vindo da planilha pela importação). A edição entra na etapa 5. */
-const D = { sub: "concursos", cache: {}, conc: "", busca: "", tipo: "" };
+const D = { sub: "concursos", cache: {}, conc: "", busca: "", tipo: "", loja: "", pr: new Map() };   // pr: preços digitados e não salvos (item → {preco, link})
 // Edição (etapa 5): só com a trava em 'painel' (status_edicao(), 11/12_*.sql) e papel proprietário/administrador.
 // Com a trava em 'planilha' a aba Dados fica exatamente como antes (somente leitura).
 const ED = { fonte: "planilha", ate: null, timer: 0 };
@@ -325,10 +336,11 @@ async function lerStatusEdicao(){
 }
 const horaBR = iso => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const faixaEd = () => podeEditar() ? `<div class="faixa-ed">${ED.ate ? `Edição liberada até ${horaBR(ED.ate)}` : "Edição pelo painel ativa"}</div>` : "";
-const SUBS = [["concursos","Concursos"],["itens","Itens"],["lojas","Lojas"],["online","Online"],["cupons","Cupons"],["bizus","Bizus"]];
+const SUBS = [["concursos","Concursos"],["itens","Itens"],["precos","Preços"],["lojas","Lojas"],["online","Online"],["cupons","Cupons"],["bizus","Bizus"]];
 const CONSULTAS = {
   concursos: () => sb.from("concursos").select("id, nome, estado, ativo, itens_iniciais, rotulo, ano, selo, msg_whatsapp, descricao, ordem, itens_enxoval(count), loja_concurso(count)"),
   itens:     () => sb.from("itens_enxoval").select("id, nome_padronizado, categoria, qtd_sugerida, link_foto, item_inicial, feminino, produto_online_id, concurso_id, precos(preco, lojas(nome, ativo, parceira))"),
+  precos:    () => sb.from("itens_enxoval").select("id, nome_padronizado, categoria, link_foto, concurso_id, produto_online_id, precos(loja_id, preco, link_produto)"),
   lojas:     () => sb.from("lojas").select("id, nome, tipo, telefone, instagram, link_maps, ativo, parceira, estado, cidade, loja_concurso(concurso_id, concursos(nome)), precos(count)"),
   online:    () => sb.from("produtos_online").select("id, categoria, nome, link_produto, link_imagem, preco, ativo, lojas(nome, ativo), itens_enxoval(concursos(nome)), cupom_produtos(cupons(codigo, ativo))"),
   bizus:     () => sb.from("bizus").select("id, concurso_id, categoria, titulo, link, ordem, ativo").order("ordem"),
@@ -344,7 +356,8 @@ const bate = (...txt) => !D.busca || norm(txt.join(" ")).includes(norm(D.busca))
 async function dados(sub){
   if(D.cache[sub]) return D.cache[sub];
   const pedidos = [CONSULTAS[sub]()];
-  if(sub === "itens" || sub === "bizus") pedidos.push(dados("concursos"));
+  if(sub === "itens" || sub === "bizus" || sub === "precos") pedidos.push(dados("concursos"));
+  if(sub === "precos") pedidos.push(dados("lojas"));
   const [r] = await Promise.all(pedidos);
   if(r.error) throw r.error;
   return (D.cache[sub] = r.data || []);
@@ -569,6 +582,101 @@ function vItens(its, cs){
   }
   return h;
 }
+/* ---- Preços: uma loja por vez, itens do concurso com o campo de preço (como no painel das lojas).
+   Grava item a item por admin_salvar_preco; vazio = a loja não vende (apaga o preço). ---- */
+function lerPreco(txt){
+  const bruto = String(txt||"").trim();
+  let t = bruto.replace(/[^\d,.]/g,"");
+  if(!t) return bruto ? NaN : null;                       // "abc" é inválido, não "não vende"
+  if(t.includes(",")) t = t.replace(/\./g,"").replace(",", ".");
+  const n = Number(t);
+  return (isFinite(n) && n > 0 && n < 100000) ? Math.round(n*100)/100 : NaN;
+}
+const campoPreco = v => v == null ? "" : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2, useGrouping: false });
+const lojaPr = () => (D.cache.lojas || []).find(l => l.id === D.loja);
+const precoDe = (i, loja) => (i.precos || []).find(p => p.loja_id === loja);
+function vPrecos(its, cs, ls){
+  cs = cs.slice().sort(ordConc);
+  const pills = concPills(cs);
+  const daqui = ls.filter(l => (l.loja_concurso || []).some(x => x.concurso_id === D.conc))
+                  .sort((a,b) => (b.ativo - a.ativo) || a.nome.localeCompare(b.nome));
+  if(!daqui.some(l => l.id === D.loja)){ D.loja = (daqui[0] || {}).id || ""; D.pr.clear(); }
+  const loja = daqui.find(l => l.id === D.loja), ed = podeEditar(), online = loja?.tipo === "online";
+  const doConc = its.filter(i => i.concurso_id === D.conc);
+  const comPreco = loja ? doConc.filter(i => precoDe(i, loja.id)?.preco != null).length : 0;
+  const vis = doConc.filter(i => bate(i.nome_padronizado, i.categoria))
+                    .sort((a,b) => (a.categoria||"").localeCompare(b.categoria||"") || a.nome_padronizado.localeCompare(b.nome_padronizado));
+  let h = `<div class="resumo"><h1>Preços</h1>${loja ? `<span class="cont num">${comPreco} de ${doConc.length} itens</span>` : ""}</div>${pills}`;
+  if(!loja) return h + `<p class="vazio">Nenhuma loja atende este concurso.<br><small>Ligue lojas ao concurso na aba Lojas.</small></p>`;
+  h += `<label class="campo sel-loja"><span>Loja</span><select id="prLoja">${daqui.map(l => `<option value="${esc(l.id)}" ${l.id === D.loja ? "selected" : ""}>${esc(l.nome)}${l.ativo ? "" : " (desativada)"}</option>`).join("")}</select></label>
+    ${/mercado ?livre/i.test(loja.nome) ? `<p class="aviso-ed">Os preços do Mercado Livre são atualizados pelo robô todo dia.</p>` : ""}
+    ${buscaHTML("Buscar item")}`;
+  if(!vis.length) h += `<p class="vazio">Nenhum item encontrado.</p>`;
+  const porCat = new Map(); for(const i of vis){ const k = i.categoria || "Sem categoria"; if(!porCat.has(k)) porCat.set(k, []); porCat.get(k).push(i); }
+  for(const [cat, lista] of porCat){
+    h += `<h2 class="cat">${esc(cat)} <span class="n">${lista.length}</span></h2><div class="lista">${lista.map(i => {
+      const at = precoDe(i, loja.id), e = D.pr.get(i.id);
+      const val = e ? e.preco : campoPreco(at?.preco), lnk = e ? e.link : (at?.link_produto || "");
+      const inv = e && Number.isNaN(lerPreco(val));
+      return `<div class="it ${e ? "alterado" : ""} ${inv ? "invalido" : ""}" data-pitem="${esc(i.id)}">${foto(i.link_foto, i.nome_padronizado)}
+        <div class="meio"><div class="nome">${esc(i.nome_padronizado)}</div>
+          ${ed && online ? `<input class="pr-link" data-plink type="url" value="${esc(lnk)}" placeholder="Link do produto (opcional)" aria-label="Link de ${esc(i.nome_padronizado)}" autocomplete="off">`
+                         : at?.link_produto ? `<div class="ref"><a href="${esc(at.link_produto)}" target="_blank" rel="noopener">ver na loja</a></div>` : ""}
+        </div>
+        ${ed ? `<label class="preco" title="Deixe vazio se a loja não vende este item"><span>R$</span>
+            <input type="text" data-ppreco inputmode="decimal" value="${esc(val)}" placeholder="não vende" aria-label="Preço de ${esc(i.nome_padronizado)}"></label>`
+             : `<div class="dir">${at?.preco != null ? `<b class="num">${brl(at.preco)}</b>` : `<span class="off">não vende</span>`}</div>`}
+      </div>`; }).join("")}</div>`;
+  }
+  return h;
+}
+// guarda o que foi digitado (sem redesenhar a tela) e atualiza a barra de salvar
+function digitouPreco(row){
+  const i = (D.cache.precos || []).find(x => x.id === row.dataset.pitem); if(!i) return;
+  const at = precoDe(i, D.loja);
+  const preco = row.querySelector("[data-ppreco]").value, link = row.querySelector("[data-plink]")?.value.trim() ?? (at?.link_produto || "");
+  const igual = lerPreco(preco) === (at?.preco ?? null) && link === (at?.link_produto || "");
+  if(igual) D.pr.delete(i.id); else D.pr.set(i.id, { preco, link });
+  row.classList.toggle("alterado", !igual);
+  row.classList.toggle("invalido", !igual && Number.isNaN(lerPreco(preco)));
+  barraPr();
+}
+function barraPr(){
+  const b = $("#barra"), n = D.pr.size, mostrar = A.aba === "dados" && D.sub === "precos" && !D.form && n > 0 && podeEditar();
+  b.hidden = !mostrar;
+  if(mostrar) $("#barraTxt").innerHTML = `<b class="num">${n}</b> ${n === 1 ? "preço alterado" : "preços alterados"} · ${esc(lojaPr()?.nome || "")}`;
+}
+// antes de trocar de loja/concurso/aba: perguntar se descarta o que não foi salvo
+function podeSairPr(){
+  if(!D.pr.size) return true;
+  if(!confirm(`Descartar ${D.pr.size === 1 ? "1 preço alterado" : D.pr.size + " preços alterados"} sem salvar?`)) return false;
+  D.pr.clear(); return true;
+}
+async function salvarPrecos(){
+  const loja = lojaPr(); if(!loja || !D.pr.size) return;
+  const its = D.cache.precos || [], nome = id => its.find(i => i.id === id)?.nome_padronizado || "item";
+  const lista = [...D.pr].map(([id, e]) => ({ id, preco: lerPreco(e.preco), link: e.link }));
+  const ruim = lista.find(x => Number.isNaN(x.preco));
+  if(ruim){ aviso(`Preço inválido em “${nome(ruim.id)}”: use um valor entre R$ 0,01 e R$ 99.999.`, true);
+            document.querySelector(`[data-pitem="${ruim.id}"] [data-ppreco]`)?.focus(); return; }
+  const semPreco = lista.find(x => x.preco == null && x.link && !precoDe(its.find(i => i.id === x.id) || {}, loja.id));
+  if(semPreco){ aviso(`Informe o preço de “${nome(semPreco.id)}” para salvar o link.`, true); return; }
+  const apagar = lista.filter(x => x.preco == null && precoDe(its.find(i => i.id === x.id) || {}, loja.id));
+  if(apagar.length && !confirm(`${apagar.length === 1 ? `“${nome(apagar[0].id)}” vai ficar` : `${apagar.length} itens vão ficar`} como “não vende” em ${loja.nome} (o preço é apagado). Continuar?`)) return;
+  const b = $("#prSalvar"); b.disabled = true; b.textContent = "Salvando…";
+  let ok = 0, erro = null;
+  for(const x of lista){
+    const { error } = await sb.rpc("admin_salvar_preco", { p_item: x.id, p_loja: loja.id, p_preco: x.preco, p_link: x.link || null });
+    if(error){ console.warn(error); erro = erro || `“${nome(x.id)}”: ${erroBanco(error)}`; if(error.code === "ENX01" || error.code === "42501") break; continue; }
+    D.pr.delete(x.id); ok++;
+  }
+  b.disabled = false; b.textContent = "Salvar";
+  ["precos", "itens", "lojas"].forEach(k => delete D.cache[k]);
+  if(erro) aviso(`${ok ? `${ok} salvo${ok > 1 ? "s" : ""}. ` : ""}Não salvou ${erro}`, true);
+  else aviso(ok === 1 ? "Preço salvo." : `${ok} preços salvos.`);
+  abrirDados();
+}
+
 function vLojas(ls){
   const vis = ls.filter(l=>(!D.tipo || l.tipo===D.tipo) && bate(l.nome, l.cidade, l.estado))
                 .sort((a,b)=>(b.ativo-a.ativo) || a.nome.localeCompare(b.nome));
@@ -618,18 +726,20 @@ function vCupons(cs){
 }
 function telaDados(){
   cabecalho(true);
-  const cache = D.cache[D.sub], pronto = cache && (!["itens","bizus"].includes(D.sub) || D.cache.concursos);
+  const cache = D.cache[D.sub], pronto = cache && (!["itens","bizus","precos"].includes(D.sub) || D.cache.concursos) && (D.sub !== "precos" || D.cache.lojas);
   let corpo = `<p class="vazio">Carregando…</p>`;
   if(pronto && D.form && podeEditar()){
     corpo = formHTML();
   } else if(pronto){
     D.form = null;
     corpo = D.sub === "concursos" ? vConcursos(cache) : D.sub === "itens" ? vItens(cache, D.cache.concursos)
+          : D.sub === "precos" ? vPrecos(cache, D.cache.concursos, D.cache.lojas)
           : D.sub === "lojas" ? vLojas(cache) : D.sub === "online" ? vOnline(cache)
           : D.sub === "bizus" ? vBizus(cache, D.cache.concursos) : vCupons(cache);
     corpo += avisoEd();
   }
   $("#tela").innerHTML = abasHTML() + subsHTML() + faixaEd() + corpo;
+  barraPr();
 }
 async function abrirDados(){
   telaDados();
@@ -641,6 +751,7 @@ async function abrirDados(){
 
 /* ---------------- eventos ---------------- */
 document.addEventListener("input", ev=>{
+  if(ev.target.matches("[data-ppreco], [data-plink]")){ digitouPreco(ev.target.closest("[data-pitem]")); return; }
   if(ev.target.id !== "dBusca") return;
   D.busca = ev.target.value; const pos = ev.target.selectionStart;
   telaDados(); const b = $("#dBusca"); if(b){ b.focus(); b.setSelectionRange(pos, pos); }
@@ -664,6 +775,7 @@ document.addEventListener("submit", async ev=>{
 document.addEventListener("change", async ev=>{
   const t = ev.target;
   if(t.id === "admLoja"){ ADM.loja = t.value; abrirMetricas(); return; }
+  if(t.id === "prLoja"){ if(!podeSairPr()){ t.value = D.loja; return; } D.loja = t.value; telaDados(); return; }
   if(t.id === "admIni" || t.id === "admFim"){
     const ini = $("#admIni").value, fim = $("#admFim").value;
     if(!ini || !fim || ini > fim) return;
@@ -683,9 +795,9 @@ document.addEventListener("change", async ev=>{
 });
 document.addEventListener("click", async ev=>{
   const a = ev.target.closest(".abas button");
-  if(a && a.dataset.aba !== A.aba){ A.aba = a.dataset.aba; D.form = null; abrirAba(); window.scrollTo(0,0); return; }
+  if(a && a.dataset.aba !== A.aba){ if(!podeSairPr()) return; A.aba = a.dataset.aba; D.form = null; abrirAba(); window.scrollTo(0,0); return; }
   const sb_ = ev.target.closest("button[data-sub]");
-  if(sb_ && sb_.dataset.sub !== D.sub){ D.sub = sb_.dataset.sub; D.busca = ""; D.form = null; abrirDados(); return; }
+  if(sb_ && sb_.dataset.sub !== D.sub){ if(!podeSairPr()) return; D.sub = sb_.dataset.sub; D.busca = ""; D.form = null; abrirDados(); return; }
   const ed = ev.target.closest("[data-editar]");
   if(ed){ abrirForm(ed.dataset.editar, ed.dataset.id); return; }
   const nv = ev.target.closest("[data-novo]");
@@ -693,7 +805,9 @@ document.addEventListener("click", async ev=>{
   if(ev.target.closest("#edCancelar")){ fecharForm(false); return; }
   if(ev.target.closest("#edExcluir")){ excluirForm(); return; }
   const dc = ev.target.closest("button[data-dconc]");
-  if(dc){ D.conc = dc.dataset.dconc; telaDados(); return; }
+  if(dc){ if(dc.dataset.dconc !== D.conc && !podeSairPr()) return; D.conc = dc.dataset.dconc; telaDados(); return; }
+  if(ev.target.closest("#prSalvar")){ salvarPrecos(); return; }
+  if(ev.target.closest("#prDescartar")){ D.pr.clear(); telaDados(); return; }
   const dt = ev.target.closest("button[data-dtipo]");
   if(dt){ D.tipo = dt.dataset.dtipo; telaDados(); return; }
   const pd = ev.target.closest("button[data-dias]");
