@@ -342,7 +342,7 @@ const CONSULTAS = {
   itens:     () => sb.from("itens_enxoval").select("id, nome_padronizado, categoria, qtd_sugerida, link_foto, item_inicial, feminino, produto_online_id, concurso_id, precos(preco, lojas(nome, ativo, parceira))"),
   precos:    () => sb.from("itens_enxoval").select("id, nome_padronizado, categoria, link_foto, concurso_id, produto_online_id, precos(loja_id, preco, link_produto)"),
   lojas:     () => sb.from("lojas").select("id, nome, tipo, telefone, instagram, link_maps, ativo, parceira, estado, cidade, loja_concurso(concurso_id, concursos(nome)), precos(count)"),
-  online:    () => sb.from("produtos_online").select("id, categoria, nome, link_produto, link_imagem, preco, ativo, lojas(nome, ativo), itens_enxoval(concursos(nome)), cupom_produtos(cupons(codigo, ativo))"),
+  online:    () => sb.from("produtos_online").select("id, categoria, nome, link_produto, link_imagem, preco, ativo, loja_id, lojas(nome, ativo), itens_enxoval(concurso_id, concursos(nome)), cupom_produtos(cupons(codigo, ativo))"),
   bizus:     () => sb.from("bizus").select("id, concurso_id, categoria, titulo, link, ordem, ativo").order("ordem"),
   cupons:    () => sb.from("cupons").select("id, codigo, texto, ativo, lojas(nome), cupom_produtos(produtos_online(nome)), cupom_itens(itens_enxoval(nome_padronizado, concursos(nome)))")
 };
@@ -423,6 +423,39 @@ const FORMS = {
       { k: "item_inicial", rot: "Item inicial", tipo: "check" },
       { k: "feminino", rot: "Só feminino", tipo: "check" }
     ]
+  },
+  produto: {
+    rotulo: "produto", fem: false, cache: ["online", "itens", "precos", "concursos", "lojas", "cupons"], novo: { ativo: true, concursos: [] },
+    salvar: "admin_salvar_produto", excluir: "admin_excluir_produto",
+    avisoExcluir: "Se ele for obrigatório em algum concurso, tire-o dos concursos antes.",
+    antes: async () => { await Promise.all([dados("concursos"), dados("lojas")]); },
+    prep: pr => ({ ...pr, concursos: [...new Set((pr.itens_enxoval || []).map(i => i.concurso_id))] }),
+    // tirar de um concurso apaga o item ligado ao produto naquele concurso (com os preços): confirmar antes
+    validar: p => {
+      const antes = D.form.id ? (D.form.dados.concursos || []) : [];
+      const sai = antes.filter(c => !p.concursos.includes(c)).map(c => (D.cache.concursos || []).find(x => x.id === c)?.nome || "?");
+      return !sai.length || confirm(`Tirar de ${sai.join(", ")} apaga o item “${p.nome}” desse concurso (e os preços dele). Continuar?`);
+    },
+    // depois de salvar o produto: "Obrigatório em" cria/remove os itens (só se a lista mudou)
+    depois: async (id, p) => {
+      const antes = D.form.id ? (D.form.dados.concursos || []) : [];
+      if(antes.length === p.concursos.length && antes.every(c => p.concursos.includes(c))) return null;
+      return sb.rpc("admin_produto_concursos", { p_id: id, p_concursos: p.concursos });
+    },
+    campos: [
+      { k: "nome", rot: "Nome", req: true, ph: "Lanterna Tática Recarregável", largo: true, ajuda: "Se for obrigatório, vira o nome do item nos concursos." },
+      { k: "categoria", rot: "Categoria", ph: "Equipamentos",
+        sugestoes: () => [...new Set((D.cache.online || []).map(x => x.categoria).filter(Boolean))].sort() },
+      { k: "loja_id", rot: "Loja", tipo: "select",
+        opcoes: () => [["", "Sem loja"], ...(D.cache.lojas || []).slice().sort((a,b) => (b.tipo === "online") - (a.tipo === "online") || a.nome.localeCompare(b.nome))
+                        .map(l => [l.id, l.nome + (l.ativo ? "" : " (desativada)")])] },
+      { k: "preco", rot: "Preço (R$)", tipo: "preco", ph: "89,90" },
+      { k: "link_produto", rot: "Link do anúncio", ph: "https://…", largo: true },
+      { k: "link_imagem", rot: "Link da imagem", ph: "https://…", largo: true },
+      { k: "concursos", rot: "Obrigatório em", tipo: "multi", largo: true, ajuda: "Marcar cria o item no concurso, com o preço desta loja; desmarcar apaga esse item.",
+        opcoes: () => (D.cache.concursos || []).slice().sort(ordConc).map(c => [c.id, c.nome + (c.ativo ? "" : " (desativado)")]) },
+      { k: "ativo", rot: "Ativo (aparece no site)", tipo: "check" }
+    ]
   }
 };
 function campoHTML(c, v){
@@ -431,7 +464,7 @@ function campoHTML(c, v){
     const marc = new Set(v || []);
     return `<fieldset class="multi ${cls}" id="${id}"><legend>${esc(c.rot)}</legend>
       ${c.opcoes().map(([val, txt]) => `<label class="check"><input type="checkbox" value="${esc(val)}" ${marc.has(val) ? "checked" : ""}> ${esc(txt)}</label>`).join("")
-        || `<small>Nenhuma opção.</small>`}</fieldset>`;
+        || `<small>Nenhuma opção.</small>`}${c.ajuda ? `<small>${esc(c.ajuda)}</small>` : ""}</fieldset>`;
   }
   if(c.tipo === "check")
     return `<label class="check ${cls}"><input type="checkbox" id="${id}" data-k="${c.k}" ${v ? "checked" : ""}> ${esc(c.rot)}</label>`;
@@ -439,6 +472,9 @@ function campoHTML(c, v){
     return `<label class="campo ${cls}"><span>${esc(c.rot)}${c.req ? " *" : ""}</span><select id="${id}" data-k="${c.k}">
       ${c.opcoes().map(([val, txt]) => `<option value="${esc(val)}" ${String(v ?? "") === String(val) ? "selected" : ""}>${esc(txt)}</option>`).join("")}</select>
       ${c.ajuda ? `<small>${esc(c.ajuda)}</small>` : ""}</label>`;
+  if(c.tipo === "preco")
+    return `<label class="campo ${cls}"><span>${esc(c.rot)}</span>
+      <input id="${id}" data-k="${c.k}" type="text" inputmode="decimal" value="${esc(campoPreco(v))}" placeholder="${esc(c.ph || "")}" autocomplete="off"></label>`;
   const sug = c.sugestoes ? c.sugestoes() : [];
   return `<label class="campo ${cls}"><span>${esc(c.rot)}${c.req ? " *" : ""}</span>
     <input id="${id}" data-k="${c.k}" ${sug.length ? `list="${id}_l"` : ""} type="${c.tipo === "number" ? "number" : "text"}" ${c.tipo === "number" ? 'inputmode="numeric"' : ""}
@@ -462,7 +498,7 @@ function lerForm(){
   for(const c of f.campos){
     const el = document.getElementById("ed_" + c.k); if(!el) continue;
     p[c.k] = c.tipo === "multi" ? [...el.querySelectorAll("input:checked")].map(i => i.value)
-           : c.tipo === "check" ? el.checked : c.tipo === "number" ? (el.value === "" ? null : Number(el.value)) : el.value.trim();
+           : c.tipo === "check" ? el.checked : c.tipo === "preco" ? lerPreco(el.value) : c.tipo === "number" ? (el.value === "" ? null : Number(el.value)) : el.value.trim();
   }
   return p;
 }
@@ -476,7 +512,7 @@ function erroBanco(e){
 async function abrirForm(ent, id){
   const f = FORMS[ent];
   if(f.antes) await f.antes();
-  const lista = { concurso: D.cache.concursos, loja: D.cache.lojas, item: D.cache.itens }[ent] || [];
+  const lista = { concurso: D.cache.concursos, loja: D.cache.lojas, item: D.cache.itens, produto: D.cache.online }[ent] || [];
   const atual = id ? (lista.find(x => x.id === id) || {}) : { ...(f.novo || {}) };
   D.form = { ent, id: id || null, dados: f.prep && id ? f.prep(atual) : atual };
   telaDados(); window.scrollTo(0, 0);
@@ -492,9 +528,18 @@ async function salvarForm(){
   const f = FORMS[D.form.ent], p = lerForm();
   const falta = f.campos.find(c => c.req && !p[c.k]);
   if(falta){ aviso(`Preencha: ${falta.rot}.`, true); document.getElementById("ed_" + falta.k)?.focus(); return; }
+  const ruim = f.campos.find(c => c.tipo === "preco" && Number.isNaN(p[c.k]));
+  if(ruim){ aviso(`${ruim.rot}: use um valor entre 0,01 e 99.999.`, true); document.getElementById("ed_" + ruim.k)?.focus(); return; }
+  if(f.validar && !f.validar(p)) return;
   const b = $("#fEd button[type=submit]"); b.disabled = true; b.textContent = "Salvando…";
-  const { error } = await sb.rpc(f.salvar, { p });
+  const { data, error } = await sb.rpc(f.salvar, { p });
   if(error){ console.warn(error); b.disabled = false; b.textContent = "Salvar"; aviso(erroBanco(error), true); return; }
+  if(f.depois){
+    const r2 = await f.depois(data, p);
+    if(r2 && r2.error){                                   // produto salvo, mas o passo seguinte falhou: avisar e recarregar
+      console.warn(r2.error); aviso(`${maiusc(f.rotulo)} ${f.fem ? "salva" : "salvo"}, mas: ${erroBanco(r2.error)}`, true); fecharForm(true); return;
+    }
+  }
   aviso(`${maiusc(f.rotulo)} ${f.fem ? "salva" : "salvo"}.`);
   fecharForm(true);
 }
@@ -697,18 +742,18 @@ function vLojas(ls){
 function vOnline(ps){
   const vis = ps.filter(p=>bate(p.nome, p.categoria, p.lojas?.nome)).sort((a,b)=>(a.categoria||"").localeCompare(b.categoria||"") || a.nome.localeCompare(b.nome));
   const porCat = new Map(); for(const p of vis){ const k = p.categoria || "Sem categoria"; if(!porCat.has(k)) porCat.set(k, []); porCat.get(k).push(p); }
-  let h = `<div class="resumo"><h1>Catálogo online</h1><span class="cont num">${ps.length} produtos</span></div>${buscaHTML("Buscar produto")}`;
+  let h = `<div class="resumo"><h1>Catálogo online</h1><span class="cont num">${ps.length} produtos</span>${btnNovo("produto")}</div>${buscaHTML("Buscar produto")}`;
   if(!vis.length) h += `<p class="vazio">Nenhum produto encontrado.</p>`;
   for(const [cat, lista] of porCat){
     h += `<h2 class="cat">${esc(cat)} <span class="n">${lista.length}</span></h2><div class="lista">${lista.map(p=>{
       const obrig = [...new Set((p.itens_enxoval||[]).map(i=>i.concursos?.nome).filter(Boolean))].sort();
       const cup = (p.cupom_produtos||[]).map(c=>c.cupons).filter(c=>c && c.ativo).map(c=>c.codigo);
       return `<div class="reg">${foto(p.link_imagem, p.nome)}<div class="meio">
-        <div class="nome">${esc(p.nome)}</div>
+        <div class="nome">${esc(p.nome)}${p.ativo === false ? ` <span class="tags">${tag("desativado","off")}</span>` : ""}</div>
         <div class="ref">${esc(p.lojas?.nome || "Sem loja")}${p.lojas && p.lojas.ativo===false ? " (desativada)" : ""}${p.link_produto ? ` · <a href="${esc(p.link_produto)}" target="_blank" rel="noopener">Ver anúncio</a>` : ""}
           <span class="tags">${cup.map(c=>tag("cupom "+c,"ini")).join("")}</span></div>
         <div class="ref">${obrig.length ? "Obrigatório em: <b>" + esc(obrig.join(", ")) + "</b>" : "Só no catálogo"}</div>
-      </div><div class="dir">${p.preco != null ? `<b class="num">${brl(p.preco)}</b>` : `<span class="off">sem preço</span>`}</div></div>`; }).join("")}</div>`;
+      </div><div class="dir">${p.preco != null ? `<b class="num">${brl(p.preco)}</b>` : `<span class="off">sem preço</span>`}${podeEditar() ? `<br>${btnEditar("produto", p.id)}` : ""}</div></div>`; }).join("")}</div>`;
   }
   return h;
 }
