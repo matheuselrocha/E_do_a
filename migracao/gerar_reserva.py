@@ -36,7 +36,7 @@ ANON = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6In
 CONSULTAS = {
     "concursos": "concursos?select=id,nome,estado,ativo,itens_iniciais,rotulo,ano,selo,msg_whatsapp,descricao,ordem&order=ordem",
     "itens":     "itens_enxoval?select=id,nome_padronizado,categoria,qtd_sugerida,link_foto,item_inicial,feminino,"
-                 "concursos!inner(nome),precos(preco,lojas(nome,ativo))&order=nome_padronizado",
+                 "concursos!inner(nome),precos(preco,lojas(nome,ativo))&order=categoria,nome_padronizado",
     "produtos":  "produtos_online?select=id,categoria,nome,link_produto,link_imagem,preco,ativo,lojas(nome,ativo)&order=categoria,nome",
     "contatos":  "loja_concurso?select=concursos(nome),lojas!inner(nome,tipo,telefone,instagram,link_maps)"
                  "&lojas.tipo=eq.fisica&lojas.ativo=eq.true",

@@ -531,7 +531,7 @@ body.selecao .topo,body.selecao .abas,body.selecao .rodape{display:none!importan
     <div class="falta"><b class="num" id="tFalta">—</b><span id="tLabel">ainda a comprar</span></div>
     <div class="sub" id="tSub">Carregando preços…</div>
     <div class="barra"><i id="tBarra"></i></div>
-    <div class="fonte"><span class="pt" id="fPonto"></span><span id="fTexto">Lendo a planilha…</span>
+    <div class="fonte"><span class="pt" id="fPonto"></span><span id="fTexto">Carregando…</span>
       
     </div>
   </header>
@@ -663,7 +663,9 @@ const leadJaEnviado = () => guarda.ler(FLAG_LEAD, false) === true;
 const linhaCatalogo  = c => CATALOGO.find(r=>r.concurso===c) || null;
 const concursoValido = c => !!c && !!linhaCatalogo(c)?.ativo;
 // Metadados (rótulo, selo...) do CFG; concurso ativo sem entrada no CFG ganha rótulos derivados do nome.
+let META_BANCO = {};   // textos dos concursos vindos do banco (leitor novo); vazio = usa o CFG
 function metaConcurso(id){
+  if(META_BANCO[id]) return META_BANCO[id];
   const c = CFG.concursos.find(c=>c.id===id); if(c) return c;
   const [rot, ano=""] = id.split(/\s+-\s+/);
   return { id, rotulo:rot, ano, badge:rot, msg:id.replace(/\s*-\s*/," "), desc:"" };
@@ -1021,7 +1023,131 @@ async function carregarSupabase(){
            pagamento: SNAPSHOT.pagamento, bizus: SNAPSHOT.bizus };
 }
 
+/* =========================================================================
+   Leitor do banco (etapa 2 / virada) — ?fonte=banco até o dia D, depois padrão.
+   Tudo vem do Supabase (concursos e textos, itens, preços, lojas, catálogo, cupons, bizus).
+   Reserva: dados.json (gerado do banco por migracao/gerar_reserva.py) → SNAPSHOT do HTML.
+   As consultas são AS MESMAS de migracao/gerar_reserva.py (CONSULTAS): mudou aqui, mude lá.
+   ========================================================================= */
+const CONSULTAS_BANCO = {
+  concursos: "concursos?select=id,nome,estado,ativo,itens_iniciais,rotulo,ano,selo,msg_whatsapp,descricao,ordem&order=ordem",
+  itens:     "itens_enxoval?select=id,nome_padronizado,categoria,qtd_sugerida,link_foto,item_inicial,feminino,concursos!inner(nome),precos(preco,lojas(nome,ativo))&order=categoria,nome_padronizado",
+  produtos:  "produtos_online?select=id,categoria,nome,link_produto,link_imagem,preco,ativo,lojas(nome,ativo)&order=categoria,nome",
+  contatos:  "loja_concurso?select=concursos(nome),lojas!inner(nome,tipo,telefone,instagram,link_maps)&lojas.tipo=eq.fisica&lojas.ativo=eq.true",
+  cupons:    "cupons?select=codigo,texto,lojas(nome),cupom_produtos(produtos_online(nome)),cupom_itens(itens_enxoval(nome_padronizado,concursos(nome)))&order=codigo",
+  bizus:     "bizus?select=categoria,titulo,link,ordem,concursos(nome)&ativo=eq.true&order=ordem"
+};
+let ORIGEM_DADOS = "", RESERVA_DATA = "";
+// confere se o pacote de dados está completo (igual aos mínimos do gerador da reserva)
+function dadosValidos(c){
+  const precos = (c.itens||[]).reduce((n,i)=>n+(i.precos||[]).length, 0);
+  return (c.concursos||[]).length>=1 && (c.itens||[]).length>=20 && (c.produtos||[]).length>=5 && (c.contatos||[]).length>=1 && precos>=50;
+}
+async function lerBanco(){
+  const ks = Object.keys(CONSULTAS_BANCO);
+  const rs = await Promise.all(ks.map(k => sbGet(CONSULTAS_BANCO[k])));
+  return Object.fromEntries(ks.map((k,i)=>[k, rs[i]]));
+}
+async function lerReserva(){
+  const r = await fetch("dados.json", { cache:"no-store" });
+  if(!r.ok) throw new Error("dados.json HTTP "+r.status);
+  const d = await r.json();
+  RESERVA_DATA = d.gerado_em ? new Date(d.gerado_em).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" }) : "";
+  return d.consultas;
+}
+// monta DADOS, CATALOGO, textos, CUPONS e BIZUS a partir do resultado cru das consultas
+function montarDoBanco(c){
+  // concursos: quais aparecem, botão "Itens iniciais" e textos
+  CATALOGO = c.concursos.map(x => ({ estado:x.estado||"", concurso:x.nome, ativo:!!x.ativo, iniciais:!!(x.ativo && x.itens_iniciais) }));
+  META_BANCO = {};
+  for(const x of c.concursos){
+    const [rot, ano=""] = x.nome.split(/\s+-\s+/);
+    META_BANCO[x.nome] = { id:x.nome, rotulo:x.rotulo||rot, ano:x.ano||ano, badge:x.selo||x.rotulo||rot,
+                           msg:x.msg_whatsapp||x.nome.replace(/\s*-\s*/," "), desc:x.descricao||"" };
+  }
+  // itens da calculadora (com preço em loja ativa)
+  const blocos = { enxoval:{lojas:[],itens:[]}, coturno:{lojas:[],itens:[]}, equip:{lojas:[],itens:[]} };
+  const lset = { enxoval:new Set(), coturno:new Set(), equip:new Set() };
+  for(const it of c.itens){
+    const conc = it.concursos && it.concursos.nome; if(!conc) continue;
+    const cat = it.categoria || "", bloco = blocoDaCategoria(cat, "enxoval"), p = {};
+    for(const pr of (it.precos||[]))
+      if(pr.lojas && pr.lojas.ativo!==false && pr.preco!=null){ p[pr.lojas.nome] = Math.round(Number(pr.preco)); lset[bloco].add(pr.lojas.nome); }
+    if(!Object.keys(p).length) continue;
+    blocos[bloco].itens.push({ uid:it.id, cat, nome:it.nome_padronizado, qtd: it.qtd_sugerida==null?0:it.qtd_sugerida,
+      p, g: it.feminino ? "F" : "A", foto: fotoURL(it.link_foto), concurso: conc, ini: !!it.item_inicial });
+  }
+  for(const b of Object.keys(blocos)) blocos[b].lojas = [...lset[b]];
+  // catálogo online: só produto ativo de loja ativa
+  const mapa = new Map();
+  for(const pr of c.produtos){
+    const cat=(pr.categoria||"").trim(), u=(pr.link_produto||"").trim();
+    if(!cat || !/^https?:\/\//i.test(u) || pr.ativo===false || (pr.lojas && pr.lojas.ativo===false)) continue;
+    if(!mapa.has(cat)) mapa.set(cat, {nome:cat, op:[]});
+    mapa.get(cat).op.push({ t: pr.nome||u, u, img: (fotoURL(pr.link_imagem) || IMG_ONLINE[u] || ""), preco: (pr.preco!=null ? Number(pr.preco) : 0) });
+  }
+  // contatos das lojas físicas ativas, com os concursos que atendem
+  const byloja = new Map();
+  for(const row of c.contatos){
+    const l = row.lojas; if(!l) continue;
+    if(!byloja.has(l.nome)) byloja.set(l.nome, {nome:l.nome, tel:l.telefone||"", ig:l.instagram||"", maps:l.link_maps||"", concs:[]});
+    const cn = row.concursos && row.concursos.nome; if(cn) byloja.get(l.nome).concs.push(cn);
+  }
+  const contatos = [...byloja.values()].map(x => [x.nome, x.tel, instaHandle(x.ig),
+    (/^https?:\/\//i.test(x.ig)?x.ig:""), (/^https?:\/\//i.test(x.maps)?x.maps:""), x.concs]);
+  // cupons ativos (a RLS já esconde os desativados): casam por nome, como antes
+  CUPONS = (c.cupons||[]).map(x => ({ codigo:x.codigo, texto:x.texto||"", loja:(x.lojas&&x.lojas.nome)||"",
+    produtos:[...new Set([...(x.cupom_produtos||[]).map(v=>v.produtos_online&&v.produtos_online.nome),
+                          ...(x.cupom_itens||[]).map(v=>v.itens_enxoval&&v.itens_enxoval.nome_padronizado)].filter(Boolean).map(chaveNome))] }))
+    .filter(x => x.produtos.length);
+  // bizus por concurso
+  const por = {};
+  for(const r of (c.bizus||[])){
+    const cn = r.concursos && r.concursos.nome; if(!cn || !r.link) continue;
+    const g = String(r.categoria||"Outros").trim(), m = (por[cn] ||= new Map());
+    if(!m.has(g)) m.set(g, []);
+    m.get(g).push([String(r.titulo||"").trim(), r.link]);
+  }
+  BIZUS = Object.fromEntries(Object.entries(por).map(([cn, m]) => [cn, [...m]]));
+  const links = [...mapa.values()];
+  DADOS = { blocos, links: links.length ? links : SNAPSHOT.links, contatos: contatos.length ? contatos : SNAPSHOT.contatos,
+            pagamento: SNAPSHOT.pagamento, bizus: SNAPSHOT.bizus };
+  migrarCarrinho();
+}
+// carrinho salvo pelo nome (antes) → pelo id do banco. Copia (não apaga o antigo) só se o novo ainda não existe.
+function migrarCarrinho(){
+  let mudou = false;
+  for(const [chave, b] of Object.entries(DADOS.blocos))
+    for(const it of b.itens){
+      if(!it.uid) continue;
+      const x = { ...it, bloco:chave }, velho = idNome(x), novo = idDe(x);
+      for(const campo of ["qtd", "loja", "cart", "compradoItem"])
+        if(E[campo] && E[campo][velho] !== undefined && E[campo][novo] === undefined){ E[campo][novo] = E[campo][velho]; mudou = true; }
+    }
+  if(mudou) salvar();
+}
+async function carregarDoBanco(){
+  try{
+    const c = await lerBanco();
+    if(!dadosValidos(c)) throw new Error("dados incompletos do banco");
+    montarDoBanco(c); ORIGEM_DADOS = "banco"; AO_VIVO = true;
+  }catch(e){
+    console.warn("Banco falhou — usando a reserva dados.json:", e.message);
+    try{
+      const c = await lerReserva();
+      if(!dadosValidos(c)) throw new Error("reserva incompleta");
+      montarDoBanco(c); ORIGEM_DADOS = "reserva"; AO_VIVO = false;
+    }catch(e2){
+      console.warn("Reserva falhou — usando a cópia embutida:", e2.message);
+      DADOS = SNAPSHOT; CATALOGO = CATALOGO_SNAP.slice(); META_BANCO = {}; CUPONS = []; BIZUS = null;
+      ORIGEM_DADOS = "snapshot"; AO_VIVO = false;
+    }
+  }
+  desenhar();
+}
+
 async function carregar(){
+  if(FONTE === "banco") return carregarDoBanco();
   carregarBizus().then(b=>{ BIZUS = b; if(E.aba === "bizus" && DADOS) desenhar(); })
                  .catch(e=>console.warn("Bizus do banco falharam — usando cópia local:", e.message));
   const cuponsP = carregarCupons().then(c=>{ CUPONS=c; }).catch(e=>console.warn("Cupons ao vivo falharam:", e.message));
@@ -1072,7 +1198,9 @@ async function carregar(){
 const $ = s => document.querySelector(s);
 const rs = v => "R$ " + Math.round(v).toLocaleString("pt-BR");
 const esc = s => String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-const idDe = it => (it.concurso||"") + "::" + it.bloco + "::" + it.nome;   // id separado por concurso
+const idNome = it => (it.concurso||"") + "::" + it.bloco + "::" + it.nome;   // id antigo (pelo nome), separado por concurso
+// Leitor do banco: o item tem o id do banco (uid) → renomear não tira o item do carrinho salvo.
+const idDe = it => it.uid ? "i:" + it.uid : idNome(it);
 
 function todos(){                                             // itens do concurso selecionado, com id e bloco
   const out=[];
@@ -1149,7 +1277,10 @@ function topo(){
     b.style.width = pct+"%"; b.classList.toggle("full",fim);
   }
   $("#fPonto").className = "pt" + (AO_VIVO ? " viva" : "");
-  $("#fTexto").textContent = AO_VIVO ? "Preços lidos da planilha agora" : "Cópia local — planilha não respondeu";
+  $("#fTexto").textContent = ORIGEM_DADOS === "banco" ? "Preços atualizados agora"
+    : ORIGEM_DADOS === "reserva" ? `Cópia de ${RESERVA_DATA} — o servidor não respondeu`
+    : ORIGEM_DADOS === "snapshot" ? "Cópia local — o servidor não respondeu"
+    : AO_VIVO ? "Preços lidos da planilha agora" : "Cópia local — planilha não respondeu";
 }
 
 /* =========================================================================
