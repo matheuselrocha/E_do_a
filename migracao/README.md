@@ -42,6 +42,9 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
 - `gerar_reserva.py` — gera `dados.json` (reserva do site se o Supabase cair) com a chave **pública**: resultado cru das
   mesmas consultas do site (`CONSULTAS`); recusa gravar se vier pouco dado (mantém a reserva anterior). `--conferir` só mostra
   o resumo. No Mac, rode com o Python do `bot-precos/.venv` (tem os certificados).
+- `backup_banco.py` — backup de **todas** as tabelas (descobertas pela API) em JSON, em `~/Backups/enxoval-do-aprovado/<data_hora>/`
+  (fora do projeto; o script recusa pasta dentro do repositório). Usa a service_role (`migracao/.env`); confere a contagem de cada
+  tabela com o banco. **Tem dado pessoal (leads)** — guardar em lugar seguro. Não inclui `auth.users`.
 - `conferir.py` — conferência planilha × banco (só lê): abas Concursos, Contatos e Cupons campo a campo.
   `set -a; . migracao/.env; set +a; python3 migracao/conferir.py` → "✅ Planilha e banco iguais."
 - `migrate_supabase.py` — o importador (lê a planilha ao vivo e **sincroniza**: atualiza pelo nome,
