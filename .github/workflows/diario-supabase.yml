@@ -1,0 +1,95 @@
+name: Robô de preços + reserva (Supabase)
+
+# Depois da virada (etapa 6) este é o único agendamento:
+#  1. robô do Mercado Livre lê o catálogo do Supabase e grava os preços lá
+#     (função robo_preco_produto: produto + itens ligados; histórico com origem "robo");
+#  2. gera a reserva do site (dados.json) a partir do banco, com a chave PÚBLICA;
+#  3. publica o dados.json SÓ se o conteúdo mudou (a data de geração não conta).
+# Não usa a planilha nem a credencial do Google.
+#
+# ATÉ O DIA D fica SEM agendamento (só "Run workflow"); no dia D o passo B4 liga o
+# "schedule" abaixo e desliga o importar-supabase.yml.
+on:
+  # schedule:
+  #   - cron: "41 8 * * *"     # todo dia 08:41 UTC = 05:41 Brasília
+  workflow_dispatch:
+    inputs:
+      simular:
+        description: "Simular o robô (lê e compara, NÃO grava preços)?"
+        type: boolean
+        default: true
+
+concurrency:
+  group: diario-supabase
+  cancel-in-progress: false
+
+permissions:
+  contents: write          # só para publicar o dados.json
+
+jobs:
+  diario:
+    runs-on: ubuntu-latest
+    env:
+      # agendado = modo real; manual = o que for escolhido (padrão: simular)
+      SIMULAR: ${{ github.event_name == 'workflow_dispatch' && inputs.simular }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Instalar o navegador do robô
+        run: |
+          python -m pip install --upgrade pip
+          pip install "playwright>=1.44" certifi
+          python -m playwright install --with-deps chromium
+
+      # se o robô falhar (site do ML fora, bloqueio...), a reserva é gerada mesmo assim
+      - name: Robô de preços (Mercado Livre -> Supabase)
+        id: robo
+        continue-on-error: true
+        working-directory: bot-precos
+        env:
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+        run: |
+          if [ "$SIMULAR" = "true" ]; then
+            python atualizar_precos.py --destino supabase --simular
+          else
+            python atualizar_precos.py --destino supabase
+          fi
+
+      # chave pública (a mesma do site); recusa gravar se vier pouco dado
+      - name: Gerar a reserva (dados.json)
+        run: python migracao/gerar_reserva.py
+
+      - name: Publicar a reserva se mudou
+        run: |
+          python - <<'EOF'
+          import json, subprocess, sys
+          novo = json.load(open("dados.json", encoding="utf-8"))
+          try:
+              antigo = json.loads(subprocess.run(["git", "show", "HEAD:dados.json"], capture_output=True, text=True, check=True).stdout)
+          except Exception:
+              antigo = {}
+          igual = antigo.get("consultas") == novo.get("consultas")
+          print("Reserva igual à publicada: nada a fazer." if igual else "Reserva mudou: publicar.")
+          open("mudou.txt", "w").write("0" if igual else "1")
+          EOF
+          if [ "$(cat mudou.txt)" = "1" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add dados.json
+            git commit -m "Reserva do site: dados.json de $(date -u +%Y-%m-%d)"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+          rm -f mudou.txt
+
+      - name: Resultado do robô
+        if: always()
+        run: |
+          if [ "${{ steps.robo.outcome }}" != "success" ]; then
+            echo "::warning::O robô de preços falhou (veja o passo acima). A reserva foi gerada mesmo assim."
+          fi
