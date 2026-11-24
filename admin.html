@@ -60,6 +60,9 @@ details[open]>summary{background:#FAF9F5}
 .det td.n{text-align:right;white-space:nowrap;padding-left:10px}
 .det .off,.reg .off{color:var(--ink3)}
 .ed-det{margin-top:10px;text-align:right}
+.dir.ord{display:flex;gap:6px;align-items:center;flex:none}
+.btn-ed.seta{min-width:34px;padding-left:0;padding-right:0}
+.btn-ed:disabled{opacity:.35;cursor:default}
 .sel-loja{display:block;margin:4px 0 12px}
 .sel-loja select{width:100%;min-height:46px;border:1px solid var(--rule);border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}
 .pr-link{width:100%;margin-top:6px;min-height:36px;border:1px solid var(--rule);border-radius:8px;padding:6px 10px;background:#fff;color:var(--ink);font-size:13px}
@@ -484,6 +487,33 @@ const FORMS = {
     ]
   }
 };
+FORMS.bizu = {
+  rotulo: "bizu", fem: false, cache: ["bizus"], novo: { ativo: true },
+  salvar: "admin_salvar_bizu", excluir: "admin_excluir_bizu",
+  nome: b => b.titulo,
+  titulo: () => (D.cache.concursos || []).find(c => c.id === (D.form.dados.concurso_id || D.conc))?.nome || "",
+  fixo: () => ({ concurso_id: D.conc }),
+  avisoExcluir: "Ele sai da página de bizus do concurso.",
+  campos: [
+    { k: "categoria", rot: "Categoria", req: true, ph: "Hinos e canções",
+      sugestoes: () => [...new Set((D.cache.bizus || []).filter(b => b.concurso_id === (D.form.dados.concurso_id || D.conc)).map(b => b.categoria))] },
+    { k: "titulo", rot: "Título", req: true, ph: "Hino do CBMDF" },
+    { k: "link", rot: "Link", req: true, ph: "https://…", largo: true, ajuda: "Drive, YouTube, PDF, Spotify… começando com https://" },
+    { k: "ordem", rot: "Ordem", tipo: "number", ph: "no fim", ajuda: "Vazio = entra no fim. Na lista dá para subir e descer." },
+    { k: "ativo", rot: "Visível no site", tipo: "check" }
+  ]
+};
+// subir/descer: troca a ordem com o vizinho da mesma categoria
+async function moverBizu(id, dir){
+  const bs = D.cache.bizus || [], b = bs.find(x => x.id === id); if(!b) return;
+  const irmaos = bs.filter(x => x.concurso_id === b.concurso_id && x.categoria === b.categoria).sort((x, y) => x.ordem - y.ordem);
+  const viz = irmaos[irmaos.indexOf(b) + dir]; if(!viz) return;
+  const novaB = viz.ordem === b.ordem ? b.ordem + dir : viz.ordem;
+  const r1 = await sb.rpc("admin_salvar_bizu", { p: { id: b.id, categoria: b.categoria, titulo: b.titulo, link: b.link, ordem: novaB } });
+  const r2 = r1.error ? r1 : await sb.rpc("admin_salvar_bizu", { p: { id: viz.id, categoria: viz.categoria, titulo: viz.titulo, link: viz.link, ordem: b.ordem } });
+  if(r2.error){ console.warn(r2.error); aviso(erroBanco(r2.error), true); }
+  delete D.cache.bizus; abrirDados();
+}
 function marcadosPrimeiro(ops, marc){
   const m = new Set(marc || []);
   return ops.sort((a,b) => (m.has(b[0]) - m.has(a[0])) || a[1].localeCompare(b[1]));
@@ -542,7 +572,7 @@ function erroBanco(e){
 async function abrirForm(ent, id){
   const f = FORMS[ent];
   if(f.antes) await f.antes();
-  const lista = { concurso: D.cache.concursos, loja: D.cache.lojas, item: D.cache.itens, produto: D.cache.online, cupom: D.cache.cupons }[ent] || [];
+  const lista = { concurso: D.cache.concursos, loja: D.cache.lojas, item: D.cache.itens, produto: D.cache.online, cupom: D.cache.cupons, bizu: D.cache.bizus }[ent] || [];
   const atual = id ? (lista.find(x => x.id === id) || {}) : { ...(f.novo || {}) };
   D.form = { ent, id: id || null, dados: f.prep && id ? f.prep(atual) : atual };
   telaDados(); window.scrollTo(0, 0);
@@ -620,16 +650,19 @@ function vBizus(bs, cs){
   const doConc = bs.filter(b=>b.concurso_id===D.conc);
   const vis = doConc.filter(b=>bate(b.titulo, b.categoria, tipoLink(b.link)));
   const porCat = new Map(); for(const b of vis){ if(!porCat.has(b.categoria)) porCat.set(b.categoria, []); porCat.get(b.categoria).push(b); }
-  let h = `<div class="resumo"><h1>Bizus</h1><span class="cont num">${doConc.length} link${doConc.length!==1?"s":""}</span></div>${pills}${buscaHTML("Buscar bizu")}`;
-  if(!doConc.length) h += `<p class="vazio">Nenhum bizu para ${esc(conc?.nome || "este concurso")}.<br><small>Na planilha: crie a aba “${esc(conc?.rotulo || conc?.nome || "")} - Bizus para o CFP” com as colunas Categoria e Link.</small></p>`;
+  let h = `<div class="resumo"><h1>Bizus</h1><span class="cont num">${doConc.length} link${doConc.length!==1?"s":""}</span>${D.conc ? btnNovo("bizu") : ""}</div>${pills}${buscaHTML("Buscar bizu")}`;
+  if(!doConc.length) h += `<p class="vazio">Nenhum bizu para ${esc(conc?.nome || "este concurso")}.${podeEditar() ? "" : `<br><small>Na planilha: crie a aba “${esc(conc?.rotulo || conc?.nome || "")} - Bizus para o CFP” com as colunas Categoria e Link.</small>`}</p>`;
   else if(!vis.length) h += `<p class="vazio">Nenhum bizu encontrado.</p>`;
   for(const [cat, lista] of porCat){
-    h += `<h2 class="cat">${esc(cat)} <span class="n">${lista.length}</span></h2><div class="lista">${lista.map(b=>{
+    h += `<h2 class="cat">${esc(cat)} <span class="n">${lista.length}</span></h2><div class="lista">${lista.map((b, k)=>{
       let host = ""; try{ host = new URL(b.link).hostname.replace(/^www\./, ""); }catch(_){}
       return `<div class="reg"><div class="meio">
         <div class="nome">${esc(b.titulo)} <span class="tags">${tag(tipoLink(b.link),"azul")}${b.ativo ? "" : tag("oculto","off")}</span></div>
         <div class="ref"><a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(host || b.link)}</a></div>
-      </div></div>`; }).join("")}</div>`;
+      </div>${podeEditar() ? `<div class="dir ord">
+        <button class="btn-ed seta" data-mover="${esc(b.id)}" data-dir="-1" aria-label="Subir" ${k === 0 || D.busca ? "disabled" : ""}>↑</button>
+        <button class="btn-ed seta" data-mover="${esc(b.id)}" data-dir="1" aria-label="Descer" ${k === lista.length - 1 || D.busca ? "disabled" : ""}>↓</button>
+        ${btnEditar("bizu", b.id)}</div>` : ""}</div>`; }).join("")}</div>`;
   }
   return h;
 }
@@ -881,6 +914,8 @@ document.addEventListener("click", async ev=>{
   if(nv){ abrirForm(nv.dataset.novo, null); return; }
   if(ev.target.closest("#edCancelar")){ fecharForm(false); return; }
   if(ev.target.closest("#edExcluir")){ excluirForm(); return; }
+  const mv = ev.target.closest("[data-mover]");
+  if(mv){ document.querySelectorAll("[data-mover]").forEach(x => x.disabled = true); moverBizu(mv.dataset.mover, +mv.dataset.dir); return; }
   const dc = ev.target.closest("button[data-dconc]");
   if(dc){ if(dc.dataset.dconc !== D.conc && !podeSairPr()) return; D.conc = dc.dataset.dconc; telaDados(); return; }
   if(ev.target.closest("#prSalvar")){ salvarPrecos(); return; }
