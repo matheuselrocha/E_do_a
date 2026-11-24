@@ -7,11 +7,10 @@ name: Robô de preços + reserva (Supabase)
 #  3. publica o dados.json SÓ se o conteúdo mudou (a data de geração não conta).
 # Não usa a planilha nem a credencial do Google.
 #
-# ATÉ O DIA D fica SEM agendamento (só "Run workflow"); no dia D o passo B4 liga o
-# "schedule" abaixo e desliga o importar-supabase.yml.
+# Ligado no dia D da virada (24/11/2026); o importar-supabase.yml ficou só manual.
 on:
-  # schedule:
-  #   - cron: "41 8 * * *"     # todo dia 08:41 UTC = 05:41 Brasília
+  schedule:
+    - cron: "41 8 * * *"     # todo dia 08:41 UTC = 05:41 Brasília
   workflow_dispatch:
     inputs:
       simular:

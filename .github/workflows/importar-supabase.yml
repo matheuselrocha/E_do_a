@@ -9,10 +9,11 @@ name: Importar planilha -> Supabase
 # As demais execuções agendadas só importam (leve).
 # Obs.: o GitHub atrasa/pula execuções agendadas em horário cheio; por isso os
 # minutos "quebrados". Na prática a de hora em hora roda ~3-4x por dia.
+# DESLIGADO na virada (24/11/2026): o Supabase passou a ser a fonte oficial e a planilha virou arquivo.
+# Sem agendamento; fica só o "Run workflow" manual para VOLTAR ATRÁS na semana de observação (antes,
+# copie para a planilha o que foi editado no painel — a importação sobrescreve o banco com a planilha).
+# Com a trava em 'painel' ele sai sem mexer em nada. O diário agora é o diario-supabase.yml.
 on:
-  schedule:
-    - cron: "17 * * * *"     # de hora em hora (:17, horário UTC) — só importa
-    - cron: "41 8 * * *"     # todo dia 08:41 UTC = 05:41 Brasília — raspa o ML e importa
   workflow_dispatch:          # execução manual pela aba Actions
     inputs:
       atualizar_precos:
