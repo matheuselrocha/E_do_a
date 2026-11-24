@@ -39,6 +39,9 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
 - `14_virada.sql` — preparação da virada: origem **robo** no histórico (`_origem()`; conta logada sempre conta como
   `painel`), `robo_preco_produto(id, preco)` só p/ `service_role` (grava produto + itens ligados; só com o painel liberado),
   e renomear produto obrigatório renomeia os itens ligados (recusa se o concurso já tiver outro item com o nome). Rode 1x.
+- `gerar_reserva.py` — gera `dados.json` (reserva do site se o Supabase cair) com a chave **pública**: resultado cru das
+  mesmas consultas do site (`CONSULTAS`); recusa gravar se vier pouco dado (mantém a reserva anterior). `--conferir` só mostra
+  o resumo. No Mac, rode com o Python do `bot-precos/.venv` (tem os certificados).
 - `conferir.py` — conferência planilha × banco (só lê): abas Concursos, Contatos e Cupons campo a campo.
   `set -a; . migracao/.env; set +a; python3 migracao/conferir.py` → "✅ Planilha e banco iguais."
 - `migrate_supabase.py` — o importador (lê a planilha ao vivo e **sincroniza**: atualiza pelo nome,
