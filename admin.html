@@ -381,7 +381,10 @@ function subsHTML(){
     `<button data-sub="${k}" aria-pressed="${D.sub===k}">${t}</button>`).join("")}</div>`;
 }
 const buscaHTML = ph => `<input class="busca" id="dBusca" type="search" placeholder="${ph}" value="${esc(D.busca)}" aria-label="${ph}">`;
-const avisoEd = () => podeEditar() ? "" : `<p class="aviso-ed">Somente leitura. Por enquanto as mudanças são feitas na planilha e chegam aqui na importação automática.</p>`;
+// aviso de somente leitura: antes da virada a planilha manda; depois, só quem é leitor não edita
+const avisoEd = () => podeEditar() ? ""
+  : ED.fonte === "planilha" ? `<p class="aviso-ed">Somente leitura. Por enquanto as mudanças são feitas na planilha e chegam aqui na importação automática.</p>`
+  : `<p class="aviso-ed">Somente leitura: sua conta é de leitor. Para editar, peça ao proprietário para mudar o seu papel.</p>`;
 
 /* ---- formulário genérico de edição (etapa 5). Grava SÓ pelas funções admin_* do banco (11_escrita.sql),
    que conferem permissão, trava e validações; a tela só mostra a mensagem que o banco devolver. ---- */
@@ -390,7 +393,7 @@ const FORMS = {
     rotulo: "concurso", fem: false, cache: ["concursos", "itens", "bizus"], novo: { ativo: false },
     salvar: "admin_salvar_concurso", excluir: "admin_excluir_concurso",
     campos: [
-      { k: "nome", rot: "Nome", req: true, ph: "CBMDF - 2025", largo: true, ajuda: "Igual ao usado nas abas da planilha." },
+      { k: "nome", rot: "Nome", req: true, ph: "CBMDF - 2025", largo: true, ajuda: "Nome completo, como em “CBMDF - 2025”." },
       { k: "rotulo", rot: "Texto do botão", ph: "CBMDF" },
       { k: "ano", rot: "Ano no botão", ph: "2025" },
       { k: "selo", rot: "Selo no topo do site", ph: "CBMDF" },
@@ -408,7 +411,7 @@ const FORMS = {
     antes: async () => { await dados("concursos"); },                          // opções de concursos atendidos
     prep: l => ({ ...l, concursos: (l.loja_concurso || []).map(x => x.concurso_id) }),
     campos: [
-      { k: "nome", rot: "Nome", req: true, ph: "Demir Fardas Militares", largo: true, ajuda: "Igual ao da aba Contatos da planilha." },
+      { k: "nome", rot: "Nome", req: true, ph: "Demir Fardas Militares", largo: true, ajuda: "Como aparece no site." },
       { k: "tipo", rot: "Tipo", tipo: "select", opcoes: () => [["fisica", "Loja física"], ["online", "Loja online"]] },
       { k: "telefone", rot: "WhatsApp / telefone", ph: "61 98765-4321", ajuda: "Com DDD." },
       { k: "instagram", rot: "Instagram", ph: "@perfil" },
@@ -429,7 +432,7 @@ const FORMS = {
     fixo: () => ({ concurso_id: D.conc }),                                      // item novo entra no concurso selecionado
     avisoExcluir: "Os preços desse item em todas as lojas também serão apagados.",
     campos: [
-      { k: "nome_padronizado", rot: "Nome", req: true, ph: "Coturno Tático Preto", largo: true, ajuda: "Renomear mantém o mesmo item: ninguém perde ele do carrinho." },
+      { k: "nome_padronizado", rot: "Nome", req: true, ph: "Coturno Tático Preto", largo: true, ajuda: "Renomear mantém o mesmo item: preços e cupons continuam ligados." },
       { k: "categoria", rot: "Categoria", req: true, ph: "Calçados",
         sugestoes: () => [...new Set((D.cache.itens || []).filter(i => i.concurso_id === D.conc).map(i => i.categoria).filter(Boolean))].sort() },
       { k: "qtd_sugerida", rot: "Quantidade sugerida", tipo: "number", ph: "1", ajuda: "0 = a critério do candidato." },
@@ -723,7 +726,7 @@ function vBizus(bs, cs){
   const vis = doConc.filter(b=>bate(b.titulo, b.categoria, tipoLink(b.link)));
   const porCat = new Map(); for(const b of vis){ if(!porCat.has(b.categoria)) porCat.set(b.categoria, []); porCat.get(b.categoria).push(b); }
   let h = `<div class="resumo"><h1>Bizus</h1><span class="cont num">${doConc.length} link${doConc.length!==1?"s":""}</span>${D.conc ? btnNovo("bizu") : ""}</div>${pills}${buscaHTML("Buscar bizu")}`;
-  if(!doConc.length) h += `<p class="vazio">Nenhum bizu para ${esc(conc?.nome || "este concurso")}.${podeEditar() ? "" : `<br><small>Na planilha: crie a aba “${esc(conc?.rotulo || conc?.nome || "")} - Bizus para o CFP” com as colunas Categoria e Link.</small>`}</p>`;
+  if(!doConc.length) h += `<p class="vazio">Nenhum bizu para ${esc(conc?.nome || "este concurso")}.${ED.fonte !== "planilha" ? "" : `<br><small>Na planilha: crie a aba “${esc(conc?.rotulo || conc?.nome || "")} - Bizus para o CFP” com as colunas Categoria e Link.</small>`}</p>`;
   else if(!vis.length) h += `<p class="vazio">Nenhum bizu encontrado.</p>`;
   for(const [cat, lista] of porCat){
     h += `<h2 class="cat">${esc(cat)} <span class="n">${lista.length}</span></h2><div class="lista">${lista.map((b, k)=>{
