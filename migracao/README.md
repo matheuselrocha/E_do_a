@@ -36,6 +36,9 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
   60 min (janela de teste) e volta sozinha a `planilha`; sem minutos = permanente (virada). `status_edicao()` para o painel. Rode 1x.
 - `13_historico_precos.sql` — `admin_historico_precos(item, loja, limite)`: a equipe lê o histórico de preços (aba Histórico do
   painel) com nomes de item, concurso, loja e autor; `precos_historico` segue fechada. Só leitura. Rode 1x.
+- `14_virada.sql` — preparação da virada: origem **robo** no histórico (`_origem()`; conta logada sempre conta como
+  `painel`), `robo_preco_produto(id, preco)` só p/ `service_role` (grava produto + itens ligados; só com o painel liberado),
+  e renomear produto obrigatório renomeia os itens ligados (recusa se o concurso já tiver outro item com o nome). Rode 1x.
 - `conferir.py` — conferência planilha × banco (só lê): abas Concursos, Contatos e Cupons campo a campo.
   `set -a; . migracao/.env; set +a; python3 migracao/conferir.py` → "✅ Planilha e banco iguais."
 - `migrate_supabase.py` — o importador (lê a planilha ao vivo e **sincroniza**: atualiza pelo nome,
