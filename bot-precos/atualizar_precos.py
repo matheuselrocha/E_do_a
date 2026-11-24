@@ -4,10 +4,12 @@
 Atualizador de preços — Enxoval CBMDF
 =====================================
 
-Lê a aba "Compras Online" da planilha do Google Sheets, entra em cada link de
-produto (Mercado Livre / Shopee / Magazine Luiza), espera o DOM carregar,
-extrai o preço e grava o valor numérico de volta na coluna "Preço" da MESMA
-linha.
+Entra em cada link de produto (Mercado Livre / Shopee / Magazine Luiza), espera o
+DOM carregar, extrai o preço e grava o valor numérico de volta. Dois destinos:
+
+  * planilha (padrão até a virada): lê e grava a aba "Compras Online";
+  * supabase (depois da virada):    lê `produtos_online` e grava pela função
+    `robo_preco_produto` (produto + itens ligados; histórico com origem "robo").
 
 Cada link é processado dentro de um try/except: se o preço não for encontrado
 (seletor mudou, site bloqueou, link quebrado...), o script anota o motivo e
@@ -19,11 +21,15 @@ Uso:
     python3 atualizar_precos.py --limit 5       # só as 5 primeiras linhas (teste)
     python3 atualizar_precos.py --so-mercadolivre   # só uma plataforma
     python3 atualizar_precos.py --dry-run       # extrai mas NÃO grava na planilha
+    python3 atualizar_precos.py --destino supabase --simular   # lê do banco, NÃO grava
+    python3 atualizar_precos.py --destino supabase             # grava no banco (só depois da virada)
 
 Config por variáveis de ambiente (todas opcionais, têm padrão):
     SHEET_ID     -> ID da planilha         (padrão: a planilha do projeto)
     SHEET_TAB    -> nome da aba            (padrão: "Compras Online")
     GOOGLE_CREDENTIALS -> caminho do .json (padrão: ./credenciais.json)
+    SUPABASE_URL / SUPABASE_SERVICE_ROLE -> destino supabase (a chave NUNCA vai para o git;
+                          sem a variável, tenta ler de migracao/.env)
 """
 
 import os
@@ -31,6 +37,9 @@ import re
 import sys
 import time
 import argparse
+import json
+import urllib.request
+import urllib.error
 
 # ------------------------------------------------------------------ CONFIG ----
 SHEET_ID = os.environ.get("SHEET_ID", "1Yi-czpyFQeRk58tUx95wkevEG3lkwtcZQANR1KspV8U")
@@ -46,6 +55,8 @@ COL_LINK = "Link do Produto"
 COL_PRECO = "Preço"
 COL_PLATAFORMA = "Plataforma"
 COL_PRODUTO = "Produto"
+
+SUPA_URL = os.environ.get("SUPABASE_URL", "https://zjvxatpdajxdtpmifkxg.supabase.co").rstrip("/")
 
 PAGE_TIMEOUT_MS = 45_000   # tempo máximo esperando a página abrir
 PRICE_TIMEOUT_S = 20       # tempo máximo tentando achar o preço na página
@@ -255,26 +266,22 @@ def extrair_preco(page, plataforma: str):
     return None, "preço não encontrado (seletor/erro/bloqueio)"
 
 
-def processar(args):
-    # imports pesados só quando realmente vai rodar
+# ------------------------------------------------------------ FONTES ----------
+# Cada fonte devolve (produtos, gravar):
+#   produtos = [{"ref": ..., "url", "plataforma", "nome", "atual"}]
+#   gravar(lista de (ref, valor, atual)) -> grava e imprime o resultado
+def fonte_planilha(args):
     try:
         import gspread
         from gspread.cell import Cell
         from google.oauth2.service_account import Credentials
     except ImportError:
         sys.exit("Falta instalar dependências. Rode:  pip install -r requirements.txt")
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        sys.exit("Falta o Playwright. Rode:  pip install -r requirements.txt && playwright install chromium")
-
     if not os.path.exists(CRED_PATH):
         sys.exit(
             f"Credencial não encontrada em: {CRED_PATH}\n"
             "Veja o README (seção 'Setup da conta de serviço')."
         )
-
-    # ---- Conecta na planilha ----
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_file(CRED_PATH, scopes=scopes)
     gc = gspread.authorize(creds)
@@ -285,7 +292,6 @@ def processar(args):
             f"Não consegui abrir a planilha/aba. Confira se ela foi COMPARTILHADA "
             f"como Editor com o e-mail da conta de serviço.\nDetalhe: {e}"
         )
-
     dados = ws.get_all_values()
     if not dados:
         sys.exit("Planilha vazia.")
@@ -297,11 +303,107 @@ def processar(args):
         except ValueError:
             sys.exit(f"Coluna '{nome}' não encontrada no cabeçalho: {cabecalho}")
 
-    i_link = idx(COL_LINK)
-    i_preco = idx(COL_PRECO)
-    i_plat = idx(COL_PLATAFORMA)
+    i_link, i_preco, i_plat = idx(COL_LINK), idx(COL_PRECO), idx(COL_PLATAFORMA)
     i_prod = idx(COL_PRODUTO) if COL_PRODUTO in cabecalho else i_plat
-    col_preco_1based = i_preco + 1
+    cel = lambda ln, i: (ln[i] if i < len(ln) else "")
+    produtos = []
+    for r, ln in enumerate(dados[1:], start=2):  # linha 2 = 1ª de dados
+        url = cel(ln, i_link).strip()
+        if not url:
+            continue
+        produtos.append({"ref": r, "url": url, "plataforma": detectar_plataforma(cel(ln, i_plat), url),
+                         "nome": cel(ln, i_prod), "atual": preco_atual(cel(ln, i_preco))})
+    print(f"Destino: planilha · aba {SHEET_TAB} | {len(dados)-1} linhas de dados\n")
+
+    def gravar(atualizacoes):
+        cells = [Cell(row=r, col=i_preco + 1, value=v) for r, v, _ in atualizacoes]
+        ws.update_cells(cells, value_input_option="RAW")
+        print(f"Planilha atualizada: {len(atualizacoes)} preços gravados na coluna '{COL_PRECO}'.")
+    return produtos, gravar
+
+
+def _chave_supabase():
+    k = os.environ.get("SUPABASE_SERVICE_ROLE", "").strip()
+    if not k:   # uso local: migracao/.env (no .gitignore)
+        env = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "migracao", ".env")
+        if os.path.exists(env):
+            for ln in open(env, encoding="utf-8"):
+                m = re.match(r"\s*(?:export\s+)?SUPABASE_SERVICE_ROLE\s*=\s*['\"]?([^'\"\s]+)", ln)
+                if m:
+                    k = m.group(1)
+    if not k:
+        sys.exit("Defina SUPABASE_SERVICE_ROLE (chave service_role) para o destino supabase.")
+    return k
+
+
+def _ssl_ctx():
+    import ssl
+    try:
+        import certifi  # vem com o gspread/requests; resolve o Python do macOS sem certificados
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
+def _supa(metodo, caminho, corpo=None, chave=""):
+    req = urllib.request.Request(SUPA_URL + caminho, method=metodo,
+                                 data=None if corpo is None else json.dumps(corpo).encode("utf-8"),
+                                 headers={"apikey": chave, "Authorization": "Bearer " + chave,
+                                          "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30, context=_ssl_ctx()) as r:
+            return json.loads(r.read().decode("utf-8") or "null")
+    except urllib.error.HTTPError as e:
+        try:
+            det = json.loads(e.read().decode("utf-8"))
+        except Exception:  # noqa: BLE001
+            det = {}
+        raise RuntimeError(f"{det.get('code', e.code)}: {det.get('message', e.reason)}") from None
+
+
+def fonte_supabase(args):
+    chave = _chave_supabase()
+    rows = _supa("GET", "/rest/v1/produtos_online?select=id,nome,link_produto,preco,lojas(nome)&order=nome", chave=chave)
+    produtos = []
+    for p in rows:
+        url = (p.get("link_produto") or "").strip()
+        if not url:
+            continue
+        loja = ((p.get("lojas") or {}).get("nome") or "")
+        produtos.append({"ref": p["id"], "url": url, "plataforma": detectar_plataforma(loja, url),
+                         "nome": p.get("nome") or "", "atual": float(p["preco"]) if p.get("preco") is not None else None})
+    fonte = _supa("POST", "/rest/v1/rpc/fonte_dados", {}, chave=chave)
+    print(f"Destino: Supabase · {len(rows)} produtos no catálogo · fonte de dados agora: {fonte}\n")
+    if fonte != "painel" and not args.dry_run:
+        sys.exit("A fonte de dados ainda é a planilha: o banco recusaria (grave na planilha até a virada,\n"
+                 "ou use --simular para só conferir).")
+
+    def gravar(atualizacoes):
+        gravados = sem_mudanca = 0
+        for pid, v, atual in atualizacoes:
+            if atual is not None and round(v, 2) == round(atual, 2):
+                sem_mudanca += 1
+                continue
+            try:
+                r = _supa("POST", "/rest/v1/rpc/robo_preco_produto", {"p_id": pid, "p_preco": v}, chave=chave)
+                gravados += 1
+                print(f"  gravado {pid[:8]}: {r.get('antes')} -> {r.get('depois')} (itens ligados: {r.get('itens')})")
+            except RuntimeError as e:
+                print(f"  NÃO gravado {pid[:8]}: {e}")
+                if str(e).startswith("ENX01"):
+                    break
+        print(f"Supabase atualizado: {gravados} preços gravados | {sem_mudanca} sem mudança.")
+    return produtos, gravar
+
+
+# ------------------------------------------------------------ EXECUÇÃO --------
+def processar(args):
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        sys.exit("Falta o Playwright. Rode:  pip install -r requirements.txt && playwright install chromium")
+
+    produtos, gravar = (fonte_supabase if args.destino == "supabase" else fonte_planilha)(args)
 
     # Padrão: só Mercado Livre (plataforma majoritária). Shopee/Magalu são
     # pulados. Use --todas para processar todas as plataformas, ou as flags
@@ -316,11 +418,8 @@ def processar(args):
     elif args.so_mercadolivre:
         filtro = "mercado livre"
 
-    # ---- Sobe o navegador ----
-    atualizacoes = []          # (linha_1based, valor_float)
+    atualizacoes = []          # (ref, valor, atual)
     ok = falhas = pulados = 0
-    print(f"Aba: {SHEET_TAB} | {len(dados)-1} linhas de dados\n")
-
     with sync_playwright() as pw:
         navegador = pw.chromium.launch(headless=not args.headful)
         ctx = navegador.new_context(
@@ -334,25 +433,17 @@ def processar(args):
         page = ctx.new_page()
 
         processadas = 0
-        for r, linha in enumerate(dados[1:], start=2):  # linha 2 = 1ª de dados
+        for n, pr in enumerate(produtos, start=1):
             if args.limit and processadas >= args.limit:
                 break
-            url = (linha[i_link] if i_link < len(linha) else "").strip()
-            plataforma = detectar_plataforma(
-                linha[i_plat] if i_plat < len(linha) else "", url
-            )
-            nome_inteiro = (linha[i_prod] if i_prod < len(linha) else "")
-            nome = nome_inteiro[:45]
-            atual = preco_atual(linha[i_preco] if i_preco < len(linha) else "")
-
-            if not url:
-                continue
+            url, plataforma, nome_inteiro, atual = pr["url"], pr["plataforma"], pr["nome"], pr["atual"]
             if filtro and plataforma != filtro:
                 pulados += 1
                 continue
 
             processadas += 1
-            etiqueta = f"[{r:>3}] {plataforma[:12]:<12} {nome:<45}"
+            ref = pr["ref"] if isinstance(pr["ref"], int) else n
+            etiqueta = f"[{ref:>3}] {plataforma[:12]:<12} {nome_inteiro[:45]:<45}"
             ULTIMO_TITULO[0] = ""
             try:
                 page.goto(url, wait_until="domcontentloaded", timeout=PAGE_TIMEOUT_MS)
@@ -369,9 +460,9 @@ def processar(args):
                 valor, erro = None, f"erro ao abrir: {type(e).__name__}"
 
             if valor is not None:
-                atualizacoes.append((r, valor))
+                atualizacoes.append((pr["ref"], valor, atual))
                 ok += 1
-                print(f"{etiqueta} -> R$ {valor:.2f}")
+                print(f"{etiqueta} -> R$ {valor:.2f}" + (f"  (era R$ {atual:.2f})" if atual is not None and round(atual, 2) != round(valor, 2) else ""))
             else:
                 falhas += 1
                 print(f"{etiqueta} -> FALHOU ({erro})")
@@ -380,27 +471,27 @@ def processar(args):
 
         navegador.close()
 
-    # ---- Grava tudo de uma vez (1 chamada de API) ----
     print()
     if not atualizacoes:
-        print("Nada extraído — planilha não foi alterada.")
+        print("Nada extraído — nada foi alterado.")
     elif args.dry_run:
-        print(f"[DRY-RUN] {len(atualizacoes)} valores extraídos, mas NÃO gravei nada.")
+        mudam = sum(1 for _, v, a in atualizacoes if a is None or round(a, 2) != round(v, 2))
+        print(f"[SIMULAÇÃO] {len(atualizacoes)} valores extraídos ({mudam} mudariam), mas NÃO gravei nada.")
     else:
-        cells = [Cell(row=r, col=col_preco_1based, value=v) for r, v in atualizacoes]
-        ws.update_cells(cells, value_input_option="RAW")
-        print(f"Planilha atualizada: {len(atualizacoes)} preços gravados na coluna '{COL_PRECO}'.")
+        gravar(atualizacoes)
 
     print(f"\nResumo: {ok} ok | {falhas} falhas | {pulados} pulados")
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Atualiza preços na aba 'Compras Online'.")
+    ap = argparse.ArgumentParser(description="Atualiza os preços do catálogo online (planilha ou Supabase).")
+    ap.add_argument("--destino", choices=["planilha", "supabase"], default="planilha",
+                    help="onde ler e gravar (padrão: planilha; supabase depois da virada)")
     ap.add_argument("--headful", action="store_true", help="mostra o navegador")
     ap.add_argument("--limit", type=int, default=0, help="processa só N linhas (teste)")
     ap.add_argument("--aceitar-variacao", action="store_true",
                     help=f"grava mesmo quando o preço muda mais de {int(VARIACAO_MAX*100)}%% (normalmente fica o atual)")
-    ap.add_argument("--dry-run", action="store_true", help="extrai mas não grava")
+    ap.add_argument("--dry-run", "--simular", dest="dry_run", action="store_true", help="extrai mas não grava")
     ap.add_argument("--todas", action="store_true",
                     help="processa TODAS as plataformas (padrão é só Mercado Livre)")
     ap.add_argument("--so-mercadolivre", action="store_true")

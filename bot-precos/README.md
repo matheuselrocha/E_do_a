@@ -30,6 +30,22 @@ python3 atualizar_precos.py --dry-run             # extrai mas NÃO grava
 python3 atualizar_precos.py --so-mercadolivre     # só uma plataforma
 ```
 
+### Destino Supabase (depois da virada)
+
+```bash
+python3 atualizar_precos.py --destino supabase --simular   # lê o catálogo do banco, NÃO grava
+python3 atualizar_precos.py --destino supabase             # grava no banco
+```
+
+- Lê `produtos_online` (link, nome, preço; a plataforma vem da loja do produto) e grava pela função
+  `robo_preco_produto` (SQL 14): atualiza o produto **e** o preço dos itens ligados a ele, e o histórico
+  registra a origem **robô** (aparece como "Robô de preços" na aba Histórico do painel).
+- Precisa da chave `SUPABASE_SERVICE_ROLE` (variável de ambiente; no computador, lida de `migracao/.env`).
+  **Nunca** versionar essa chave.
+- Antes da virada o banco recusa a gravação (os dados ainda vêm da planilha); `--simular` funciona sempre.
+- Preço igual ao atual não é regravado. As mesmas proteções valem nos dois destinos (lista do afiliado,
+  título do anúncio, variação acima de 60%).
+
 ## Setup da conta de serviço (uma vez, ~5 min)
 
 Sem isso o bot lê mas **não consegue escrever** na planilha.
