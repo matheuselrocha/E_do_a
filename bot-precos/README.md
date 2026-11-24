@@ -67,8 +67,13 @@ Pronto. O `.gitignore` já impede que o `credenciais.json` seja commitado.
 
 ## Rodar na nuvem (GitHub Actions)
 
-O bot está embutido na ação **"Importar planilha -> Supabase"**
-(`.github/workflows/importar-supabase.yml`). O fluxo é:
+> **Desde a virada (24/11/2026)** o robô roda na ação **"Robô de preços + reserva (Supabase)"**
+> (`.github/workflows/diario-supabase.yml`), todo dia às 05:41, com `--destino supabase`; no
+> "Run workflow" manual o padrão é **simular**. Não usa mais a planilha nem a credencial do Google.
+> O texto abaixo descreve o fluxo **antigo** (até a virada), mantido para voltar atrás.
+
+O bot estava embutido na ação **"Importar planilha -> Supabase"**
+(`.github/workflows/importar-supabase.yml`). O fluxo era:
 
 > bot atualiza a coluna Preço na planilha → importação leva pro Supabase → site
 

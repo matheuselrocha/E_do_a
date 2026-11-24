@@ -1,7 +1,11 @@
-# Importação da planilha → Supabase
+# Banco (Supabase) — SQL, importação histórica e ferramentas
 
-Este diretório importa os dados do Google Sheets ("Backend - Controle de Enxoval")
-para o Supabase. **Não altera o site** — o site lê o Supabase depois de importado.
+> **Desde a virada (24/11/2026) o Supabase é a fonte oficial.** Tudo se edita no painel
+> (`admin.html`); a planilha virou arquivo só leitura e a **importação não roda mais**
+> (sem agendamento; com a trava em `painel` ela sai sem mexer em nada). O diário agora é o
+> `.github/workflows/diario-supabase.yml` (robô do Mercado Livre no Supabase + reserva `dados.json`).
+> A importação continua aqui só para **voltar atrás** (antes, copie para a planilha o que foi
+> editado no painel — o histórico do painel mostra tudo).
 
 ## Arquivos
 - `01_schema.sql` — cria as 5 tabelas (concursos, lojas, loja_concurso, itens_enxoval, precos). Rode 1x no SQL Editor.
@@ -57,7 +61,7 @@ para o Supabase. **Não altera o site** — o site lê o Supabase depois de impo
 2. Copie `migracao/.env.example` para `migracao/.env` e cole a **service_role key**
    (Supabase → Settings → API → `service_role`). O `.env` **não** é versionado.
 
-## Rodar a importação (sempre que editar a planilha)
+## Rodar a importação (só para voltar atrás — ver o aviso no topo)
 ```bash
 bash migracao/importar.sh
 ```
