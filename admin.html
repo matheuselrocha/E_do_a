@@ -60,6 +60,12 @@ details[open]>summary{background:#FAF9F5}
 .det td.n{text-align:right;white-space:nowrap;padding-left:10px}
 .det .off,.reg .off{color:var(--ink3)}
 .ed-det{margin-top:10px;text-align:right}
+.reg.hist .quando{margin-top:3px}
+.dif{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--ink2)}
+.dif li{margin:2px 0;overflow-wrap:anywhere}
+.dif s,.reg.hist s{color:var(--ink3)}
+.filtro-reg{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;margin:0 0 12px}
+.mais-h{text-align:center;margin:14px 0}
 .dir.ord{display:flex;gap:6px;align-items:center;flex:none}
 .btn-ed.seta{min-width:34px;padding-left:0;padding-right:0}
 .btn-ed:disabled{opacity:.35;cursor:default}
@@ -341,10 +347,12 @@ async function lerStatusEdicao(){
 }
 const horaBR = iso => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const faixaEd = () => podeEditar() ? `<div class="faixa-ed">${ED.ate ? `Edição liberada até ${horaBR(ED.ate)}` : "Edição pelo painel ativa"}</div>` : "";
-const SUBS = [["concursos","Concursos"],["itens","Itens"],["precos","Preços"],["lojas","Lojas"],["online","Online"],["cupons","Cupons"],["bizus","Bizus"]];
+const SUBS = [["concursos","Concursos"],["itens","Itens"],["precos","Preços"],["lojas","Lojas"],["online","Online"],["cupons","Cupons"],["bizus","Bizus"],["historico","Histórico"]];
 const CONSULTAS = {
   concursos: () => sb.from("concursos").select("id, nome, estado, ativo, itens_iniciais, rotulo, ano, selo, msg_whatsapp, descricao, ordem, itens_enxoval(count), loja_concurso(count)"),
   itens:     () => sb.from("itens_enxoval").select("id, nome_padronizado, categoria, qtd_sugerida, link_foto, item_inicial, feminino, produto_online_id, concurso_id, precos(preco, lojas(nome, ativo, parceira))"),
+  historico: () => H.tab === "precos" ? sb.rpc("admin_historico_precos", { p_item: H.reg, p_loja: null, p_limite: H.lim })
+                                       : sb.rpc("admin_historico", { p_tabela: H.tab || null, p_registro: H.reg, p_limite: H.lim }),
   precos:    () => sb.from("itens_enxoval").select("id, nome_padronizado, categoria, link_foto, concurso_id, produto_online_id, precos(loja_id, preco, link_produto)"),
   lojas:     () => sb.from("lojas").select("id, nome, tipo, telefone, instagram, link_maps, ativo, parceira, estado, cidade, loja_concurso(concurso_id, concursos(nome)), precos(count)"),
   online:    () => sb.from("produtos_online").select("id, categoria, nome, link_produto, link_imagem, preco, ativo, loja_id, lojas(nome, ativo), itens_enxoval(concurso_id, concursos(nome)), cupom_produtos(cupons(codigo, ativo))"),
@@ -363,6 +371,7 @@ async function dados(sub){
   const pedidos = [CONSULTAS[sub]()];
   if(sub === "itens" || sub === "bizus" || sub === "precos") pedidos.push(dados("concursos"));
   if(sub === "precos") pedidos.push(dados("lojas"));
+  if(sub === "historico") pedidos.push(...["concursos", "itens", "lojas", "online", "cupons", "bizus"].map(k => dados(k)));   // nomes dos registros
   const [r] = await Promise.all(pedidos);
   if(r.error) throw r.error;
   return (D.cache[sub] = r.data || []);
@@ -514,6 +523,68 @@ async function moverBizu(id, dir){
   if(r2.error){ console.warn(r2.error); aviso(erroBanco(r2.error), true); }
   delete D.cache.bizus; abrirDados();
 }
+/* ---- Histórico: o que mudou, quando e quem (alteracoes + precos_historico, via funções admin_historico*) ---- */
+const H = { tab: "", reg: null, regNome: "", lim: 100 };
+const TAB_ENT = { concursos: "concurso", lojas: "loja", itens_enxoval: "item", produtos_online: "produto", cupons: "cupom", bizus: "bizu" };
+const TAB_NOME = { concursos: "concurso", lojas: "loja", itens_enxoval: "item", produtos_online: "produto", cupons: "cupom", bizus: "bizu",
+                   loja_concurso: "loja × concurso", cupom_produtos: "cupom × produto", cupom_itens: "cupom × item" };
+const FILTROS_H = [["", "Tudo"], ["concursos", "Concursos"], ["itens_enxoval", "Itens"], ["precos", "Preços"], ["lojas", "Lojas"],
+                   ["produtos_online", "Online"], ["cupons", "Cupons"], ["bizus", "Bizus"]];
+const CAMPO_EXTRA = { concurso_id: "concurso", loja_id: "loja", produto_online_id: "produto do catálogo", link_produto: "link", parceira: "parceira", tipo: "tipo" };
+const dataHoraBR = iso => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+const precoH = v => v == null ? "não vende" : brl(v);
+function nomeDe(tabela, id){
+  const c = D.cache, acha = (l, k) => (l || []).find(x => x.id === id)?.[k];
+  return { concursos: acha(c.concursos, "nome"), lojas: acha(c.lojas, "nome"), itens_enxoval: acha(c.itens, "nome_padronizado"),
+           produtos_online: acha(c.online, "nome"), cupons: acha(c.cupons, "codigo"), bizus: acha(c.bizus, "titulo") }[tabela];
+}
+function rotuloRegistro(h, todas){
+  const v = h.depois || h.antes || {};
+  const direto = v.nome_padronizado || v.nome || v.codigo || v.titulo || nomeDe(h.tabela, h.registro_id);
+  if(direto) return direto;
+  // vínculos: monta "A × B" pelos ids guardados
+  const ent = { loja_concurso: [["lojas", "loja_id"], ["concursos", "concurso_id"]], cupom_produtos: [["cupons", "cupom_id"], ["produtos_online", "produto_online_id"]],
+                cupom_itens: [["cupons", "cupom_id"], ["itens_enxoval", "item_id"]] }[h.tabela];
+  const lembra = (tab, id) => nomeDe(tab, id) || todas.map(x => x.registro_id === id && (x.antes || x.depois)).filter(Boolean)
+                                 .map(x => x.nome_padronizado || x.nome || x.codigo || x.titulo).find(Boolean);
+  if(ent) return ent.map(([tab, k]) => lembra(tab, v[k]) || "removido").join(" × ");
+  return lembra(h.tabela, h.registro_id) || "(registro removido)";
+}
+function valorH(k, x){
+  if(x == null || x === "") return "vazio";
+  if(typeof x === "boolean") return x ? "sim" : "não";
+  if(k === "concurso_id") return nomeDe("concursos", x) || "outro concurso";
+  if(k === "loja_id") return nomeDe("lojas", x) || "outra loja";
+  if(k === "produto_online_id") return nomeDe("produtos_online", x) || "outro produto";
+  if(k === "preco") return brl(x);
+  const t = String(x); return t.length > 70 ? t.slice(0, 67) + "…" : t;
+}
+function difH(h){
+  if(h.acao !== "alterou" || !h.depois) return "";
+  const campos = FORMS[TAB_ENT[h.tabela]]?.campos || [];
+  const rot = k => (campos.find(c => c.k === k)?.rot || CAMPO_EXTRA[k] || k).toLowerCase();
+  return `<ul class="dif">${Object.keys(h.depois).map(k => `<li><b>${esc(rot(k))}</b>: <s>${esc(valorH(k, h.antes?.[k]))}</s> → ${esc(valorH(k, h.depois[k]))}</li>`).join("")}</ul>`;
+}
+function vHistorico(rows){
+  const quem = r => r.autor ? esc(r.autor) : r.origem === "importacao" ? "Importação da planilha" : r.origem === "robo" ? "Robô de preços" : esc(r.origem || "—");
+  let h = `<div class="resumo"><h1>Histórico</h1><span class="cont num">${rows.length}${rows.length >= H.lim ? "+" : ""} mudanças</span></div>
+    <div class="concs" role="group" aria-label="Filtro">${FILTROS_H.map(([k, t]) => `<button data-htab="${k}" aria-pressed="${H.tab === k}">${t}</button>`).join("")}</div>
+    ${H.reg ? `<p class="filtro-reg">Só: <b>${esc(H.regNome || "registro")}</b> <button class="btn-ed" id="hTodos">Ver tudo</button></p>` : ""}`;
+  if(!rows.length) return h + `<p class="vazio">Nenhuma mudança registrada.</p>`;
+  const acao = { criou: ["criado", "ini"], alterou: ["alterado", "azul"], removeu: ["removido", "off"] };
+  h += `<div class="lista">${rows.map(r => {
+    if(H.tab === "precos") return `<div class="reg hist"><div class="meio">
+        <div class="nome">${esc(r.item || "(item removido)")} <span class="tags">${tag(r.concurso || "?", "azul")}</span></div>
+        <div class="ref">${esc(r.loja || "(loja removida)")}: <s>${precoH(r.preco_antigo)}</s> → <b>${precoH(r.preco_novo)}</b></div>
+        <div class="ref quando">${dataHoraBR(r.alterado_em)} · ${quem(r)}</div></div></div>`;
+    const [a, cls] = acao[r.acao] || [r.acao, ""];
+    return `<div class="reg hist"><div class="meio">
+        <div class="nome">${esc(rotuloRegistro(r, rows))} <span class="tags">${tag(TAB_NOME[r.tabela] || r.tabela)}${tag(a, cls)}</span></div>
+        <div class="ref quando">${dataHoraBR(r.criado_em)} · ${quem(r)}</div>${difH(r)}</div></div>`;
+  }).join("")}</div>`;
+  if(rows.length >= H.lim && H.lim < 500) h += `<p class="mais-h"><button class="btn ghost" id="hMais">Mostrar mais</button></p>`;
+  return h;
+}
 function marcadosPrimeiro(ops, marc){
   const m = new Set(marc || []);
   return ops.sort((a,b) => (m.has(b[0]) - m.has(a[0])) || a[1].localeCompare(b[1]));
@@ -550,6 +621,7 @@ function formHTML(){
     <div class="acoes-ed">
       <button class="btn fogo" type="submit">Salvar</button>
       <button class="btn ghost" type="button" id="edCancelar">Cancelar</button>
+      ${D.form.id ? `<button class="btn ghost" type="button" id="edHist">Histórico</button>` : ""}
       ${D.form.id && f.excluir ? `<button class="btn excluir" type="button" id="edExcluir">Excluir</button>` : ""}
     </div></form>`;
 }
@@ -842,14 +914,16 @@ function telaDados(){
     D.form = null;
     corpo = D.sub === "concursos" ? vConcursos(cache) : D.sub === "itens" ? vItens(cache, D.cache.concursos)
           : D.sub === "precos" ? vPrecos(cache, D.cache.concursos, D.cache.lojas)
+          : D.sub === "historico" ? vHistorico(cache)
           : D.sub === "lojas" ? vLojas(cache) : D.sub === "online" ? vOnline(cache)
           : D.sub === "bizus" ? vBizus(cache, D.cache.concursos) : vCupons(cache);
-    corpo += avisoEd();
+    if(D.sub !== "historico") corpo += avisoEd();
   }
   $("#tela").innerHTML = abasHTML() + subsHTML() + faixaEd() + corpo;
   barraPr();
 }
 async function abrirDados(){
+  if(D.sub === "historico") delete D.cache.historico;          // sempre o mais recente
   telaDados();
   const sub = D.sub;
   try{ await Promise.all([dados(sub), lerStatusEdicao()]); }
@@ -907,13 +981,24 @@ document.addEventListener("click", async ev=>{
   const a = ev.target.closest(".abas button");
   if(a && a.dataset.aba !== A.aba){ if(!podeSairPr()) return; A.aba = a.dataset.aba; D.form = null; abrirAba(); window.scrollTo(0,0); return; }
   const sb_ = ev.target.closest("button[data-sub]");
-  if(sb_ && sb_.dataset.sub !== D.sub){ if(!podeSairPr()) return; D.sub = sb_.dataset.sub; D.busca = ""; D.form = null; abrirDados(); return; }
+  if(sb_ && sb_.dataset.sub !== D.sub){ if(!podeSairPr()) return; D.sub = sb_.dataset.sub; D.busca = ""; D.form = null;
+    if(D.sub === "historico") Object.assign(H, { reg: null, regNome: "", lim: 100 });
+    abrirDados(); return; }
   const ed = ev.target.closest("[data-editar]");
   if(ed){ abrirForm(ed.dataset.editar, ed.dataset.id); return; }
   const nv = ev.target.closest("[data-novo]");
   if(nv){ abrirForm(nv.dataset.novo, null); return; }
   if(ev.target.closest("#edCancelar")){ fecharForm(false); return; }
   if(ev.target.closest("#edExcluir")){ excluirForm(); return; }
+  if(ev.target.closest("#edHist")){
+    const f = FORMS[D.form.ent], tab = Object.keys(TAB_ENT).find(t => TAB_ENT[t] === D.form.ent), d = D.form.dados || {};
+    Object.assign(H, { tab, reg: D.form.id, regNome: (f.nome && f.nome(d)) || d.nome || d.codigo || d.titulo || "", lim: 100 });
+    D.form = null; D.sub = "historico"; D.busca = ""; abrirDados(); window.scrollTo(0, 0); return;
+  }
+  const ht = ev.target.closest("button[data-htab]");
+  if(ht){ Object.assign(H, { tab: ht.dataset.htab, reg: null, regNome: "", lim: 100 }); abrirDados(); return; }
+  if(ev.target.closest("#hTodos")){ Object.assign(H, { reg: null, regNome: "", lim: 100 }); abrirDados(); return; }
+  if(ev.target.closest("#hMais")){ H.lim = Math.min(500, H.lim + 200); abrirDados(); return; }
   const mv = ev.target.closest("[data-mover]");
   if(mv){ document.querySelectorAll("[data-mover]").forEach(x => x.disabled = true); moverBizu(mv.dataset.mover, +mv.dataset.dir); return; }
   const dc = ev.target.closest("button[data-dconc]");
