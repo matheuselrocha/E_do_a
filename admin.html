@@ -78,6 +78,8 @@ details[open]>summary{background:#FAF9F5}
 .form-ed .multi{border:1px solid var(--rule);border-radius:10px;padding:6px 12px 8px;margin:0}
 .form-ed .multi legend{font-size:13px;font-weight:600;color:var(--ink2);padding:0 4px}
 .form-ed .multi .check{min-height:38px;font-weight:500}
+.form-ed .multi.rolar{max-height:300px;overflow:auto}
+.form-ed .multi legend .n{color:var(--fogo)}
 .form-ed .acoes-ed{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
 .form-ed .acoes-ed .btn{min-height:44px}
 .form-ed .acoes-ed .excluir{margin-left:auto;background:transparent;color:var(--erro);border:1px solid #E7B9B5}
@@ -344,7 +346,7 @@ const CONSULTAS = {
   lojas:     () => sb.from("lojas").select("id, nome, tipo, telefone, instagram, link_maps, ativo, parceira, estado, cidade, loja_concurso(concurso_id, concursos(nome)), precos(count)"),
   online:    () => sb.from("produtos_online").select("id, categoria, nome, link_produto, link_imagem, preco, ativo, loja_id, lojas(nome, ativo), itens_enxoval(concurso_id, concursos(nome)), cupom_produtos(cupons(codigo, ativo))"),
   bizus:     () => sb.from("bizus").select("id, concurso_id, categoria, titulo, link, ordem, ativo").order("ordem"),
-  cupons:    () => sb.from("cupons").select("id, codigo, texto, ativo, lojas(nome), cupom_produtos(produtos_online(nome)), cupom_itens(itens_enxoval(nome_padronizado, concursos(nome)))")
+  cupons:    () => sb.from("cupons").select("id, codigo, texto, ativo, loja_id, lojas(nome), cupom_produtos(produto_online_id, produtos_online(nome)), cupom_itens(item_id, itens_enxoval(nome_padronizado, concursos(nome)))")
 };
 const ordConc = (a, b) => (a.ordem ?? 99) - (b.ordem ?? 99) || a.nome.localeCompare(b.nome);
 const nInt = r => (r && r[0] && r[0].count) || 0;
@@ -456,13 +458,41 @@ const FORMS = {
         opcoes: () => (D.cache.concursos || []).slice().sort(ordConc).map(c => [c.id, c.nome + (c.ativo ? "" : " (desativado)")]) },
       { k: "ativo", rot: "Ativo (aparece no site)", tipo: "check" }
     ]
+  },
+  cupom: {
+    rotulo: "cupom", fem: false, cache: ["cupons", "online"], novo: { ativo: false, produtos: [], itens: [] },
+    salvar: "admin_salvar_cupom", excluir: "admin_excluir_cupom",
+    nome: c => c.codigo,
+    avisoExcluir: "Os vínculos com produtos e itens saem junto.",
+    antes: async () => { await Promise.all([dados("lojas"), dados("online"), dados("itens"), dados("concursos")]); },
+    prep: c => ({ ...c, produtos: (c.cupom_produtos || []).map(x => x.produto_online_id), itens: (c.cupom_itens || []).map(x => x.item_id) }),
+    campos: [
+      { k: "codigo", rot: "Código", req: true, ph: "ENXOVAL10", ajuda: "3 a 30 letras ou números; fica em maiúsculas." },
+      { k: "loja_id", rot: "Loja", tipo: "select",
+        opcoes: () => [["", "Sem loja"], ...(D.cache.lojas || []).slice().sort((a,b) => (b.ativo - a.ativo) || a.nome.localeCompare(b.nome))
+                        .map(l => [l.id, l.nome + (l.ativo ? "" : " (desativada)")])] },
+      { k: "texto", rot: "Texto do balão", ph: "10% de desconto na Atalaia", largo: true },
+      { k: "ativo", rot: "Ativo (aparece no site)", tipo: "check" },
+      // listas longas: os marcados vêm primeiro
+      { k: "produtos", rot: "Catálogo online", tipo: "multi", largo: true, rolar: true, ajuda: "O balão aparece nesses produtos.",
+        opcoes: () => marcadosPrimeiro((D.cache.online || []).map(x => [x.id, x.nome + (x.ativo === false ? " (desativado)" : "")]), D.form.dados.produtos) },
+      { k: "itens", rot: "Itens da calculadora", tipo: "multi", largo: true, rolar: true, ajuda: "O balão aparece nesses itens.",
+        opcoes: () => {
+          const cn = id => (D.cache.concursos || []).find(c => c.id === id)?.nome || "?";
+          return marcadosPrimeiro((D.cache.itens || []).map(i => [i.id, `${i.nome_padronizado} · ${cn(i.concurso_id)}`]), D.form.dados.itens);
+        } }
+    ]
   }
 };
+function marcadosPrimeiro(ops, marc){
+  const m = new Set(marc || []);
+  return ops.sort((a,b) => (m.has(b[0]) - m.has(a[0])) || a[1].localeCompare(b[1]));
+}
 function campoHTML(c, v){
   const id = "ed_" + c.k, cls = c.largo ? "largo" : "";
   if(c.tipo === "multi"){
     const marc = new Set(v || []);
-    return `<fieldset class="multi ${cls}" id="${id}"><legend>${esc(c.rot)}</legend>
+    return `<fieldset class="multi ${cls} ${c.rolar ? "rolar" : ""}" id="${id}"><legend>${esc(c.rot)}${c.rolar ? ` <span class="n">${marc.size}</span>` : ""}</legend>
       ${c.opcoes().map(([val, txt]) => `<label class="check"><input type="checkbox" value="${esc(val)}" ${marc.has(val) ? "checked" : ""}> ${esc(txt)}</label>`).join("")
         || `<small>Nenhuma opção.</small>`}${c.ajuda ? `<small>${esc(c.ajuda)}</small>` : ""}</fieldset>`;
   }
@@ -512,7 +542,7 @@ function erroBanco(e){
 async function abrirForm(ent, id){
   const f = FORMS[ent];
   if(f.antes) await f.antes();
-  const lista = { concurso: D.cache.concursos, loja: D.cache.lojas, item: D.cache.itens, produto: D.cache.online }[ent] || [];
+  const lista = { concurso: D.cache.concursos, loja: D.cache.lojas, item: D.cache.itens, produto: D.cache.online, cupom: D.cache.cupons }[ent] || [];
   const atual = id ? (lista.find(x => x.id === id) || {}) : { ...(f.novo || {}) };
   D.form = { ent, id: id || null, dados: f.prep && id ? f.prep(atual) : atual };
   telaDados(); window.scrollTo(0, 0);
@@ -759,7 +789,7 @@ function vOnline(ps){
 }
 function vCupons(cs){
   cs = cs.slice().sort((a,b)=>(b.ativo-a.ativo) || a.codigo.localeCompare(b.codigo));
-  return `<div class="resumo"><h1>Cupons</h1><span class="cont num">${cs.filter(c=>c.ativo).length} ativos de ${cs.length}</span></div>
+  return `<div class="resumo"><h1>Cupons</h1><span class="cont num">${cs.filter(c=>c.ativo).length} ativos de ${cs.length}</span>${btnNovo("cupom")}</div>
     ${cs.length ? cs.map(c=>{
       const prods = (c.cupom_produtos||[]).map(x=>x.produtos_online?.nome).filter(Boolean).sort();
       const its = (c.cupom_itens||[]).map(x=>x.itens_enxoval).filter(Boolean).map(i=>`${i.nome_padronizado} (${i.concursos?.nome||"?"})`).sort();
@@ -767,7 +797,7 @@ function vCupons(cs){
         <p>${esc(c.lojas?.nome || "Sem loja")}${c.texto ? ` · “${esc(c.texto)}”` : ""}</p>
         ${prods.length ? `<p><b>Catálogo online</b></p><ul>${prods.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>` : ""}
         ${its.length ? `<p><b>Calculadora</b></p><ul>${its.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>` : ""}
-        ${!prods.length && !its.length ? `<p>Nenhum produto vinculado.</p>` : ""}</div>`; }).join("") : `<p class="vazio">Nenhum cupom cadastrado.</p>`}`;
+        ${!prods.length && !its.length ? `<p>Nenhum produto vinculado.</p>` : ""}${podeEditar() ? `<div class="ed-det">${btnEditar("cupom", c.id)}</div>` : ""}</div>`; }).join("") : `<p class="vazio">Nenhum cupom cadastrado.</p>`}`;
 }
 function telaDados(){
   cabecalho(true);
@@ -820,6 +850,8 @@ document.addEventListener("submit", async ev=>{
 document.addEventListener("change", async ev=>{
   const t = ev.target;
   if(t.id === "admLoja"){ ADM.loja = t.value; abrirMetricas(); return; }
+  const fs = t.closest && t.closest("fieldset.rolar");
+  if(fs){ const n = fs.querySelector("legend .n"); if(n) n.textContent = fs.querySelectorAll("input:checked").length; return; }
   if(t.id === "prLoja"){ if(!podeSairPr()){ t.value = D.loja; return; } D.loja = t.value; telaDados(); return; }
   if(t.id === "admIni" || t.id === "admFim"){
     const ini = $("#admIni").value, fim = $("#admFim").value;
